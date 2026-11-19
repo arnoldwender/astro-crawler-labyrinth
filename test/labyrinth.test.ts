@@ -62,7 +62,7 @@ describe('Config & User-Agent Separation', () => {
 });
 
 describe('WebCrypto Token Signing & Privacy-Safe IP Hashing', () => {
-  const secret = '0123456789abcdef0123456789abcdef';
+  const secret = 'unit-fixture-hmac-key-not-secret';
 
   it('signs and verifies trap tokens in constant time and rejects tampering', async () => {
     const token = await signTrapToken(3, 'archfolio99', secret);
@@ -84,7 +84,7 @@ describe('WebCrypto Token Signing & Privacy-Safe IP Hashing', () => {
 });
 
 describe('Deterministic Decoy Generator', () => {
-  const secret = 'test-secret-0123456789abcdef';
+  const secret = 'unit-fixture-decoy-key-not-secret';
 
   it('generates identical archival HTML with noindex/noai and ring-bounded child depth', async () => {
     const a = await generateDecoyDocument({ depth: 4, seed: 'folio0001', secret, maxDepth: 4, linksPerPage: 2 });
@@ -152,7 +152,7 @@ describe('Edge Handler, Quarantine Store, SSR Endpoint & Astro Middleware', () =
       strikeThreshold: 2,
       blockStatus: 429,
       blockTtlMs: 120_000,
-      secret: 'edge-secret-0123456789abcdef',
+      secret: 'unit-fixture-edge-key-not-secret',
       interceptTrainingBots: true,
       onViolation: (ev) => {
         events.push(ev);
@@ -191,7 +191,7 @@ describe('Edge Handler, Quarantine Store, SSR Endpoint & Astro Middleware', () =
     expect(events[0]?.ipDigest).not.toContain('192.0.2');
 
     // Middleware delegates pass-throughs to next()
-    const mw = createLabyrinthMiddleware({ secret: 'edge-secret-0123456789abcdef' });
+    const mw = createLabyrinthMiddleware({ secret: 'unit-fixture-edge-key-not-secret' });
     const nextRes = await mw(
       { request: new Request('https://example.test/contact/'), clientAddress: '192.0.2.99' } as never,
       async () => new Response('ok', { status: 200 }),
@@ -201,7 +201,7 @@ describe('Edge Handler, Quarantine Store, SSR Endpoint & Astro Middleware', () =
   });
 
   it('serves decoy pages on trap routes and returns 404 noindex for unrelated endpoint calls', async () => {
-    const endpoint = createLabyrinthEndpoint({ secret: 'endpoint-secret-0123456789abcdef' });
+    const endpoint = createLabyrinthEndpoint({ secret: 'unit-fixture-route-key-not-secret' });
     const trapRes = await endpoint({
       request: new Request('https://example.test/crawler-trap/1-seed0001-0000/'),
       clientAddress: '192.0.2.77',
@@ -255,7 +255,7 @@ describe('End-to-End Astro SSG Build & Component Integration', () => {
       'utf8',
     );
 
-    const trapSecret = 'e2e-ssg-secret-0123456789abcdef';
+    const trapSecret = 'unit-fixture-ssg-build-key-not-secret';
     await symlink(resolve(process.cwd(), 'node_modules'), join(projectDir, 'node_modules'));
     const entryMod = resolve(process.cwd(), 'dist/index.js');
     await writeFile(
