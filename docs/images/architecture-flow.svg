@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 420" width="1080" height="420" role="img" aria-labelledby="acl-arch-title acl-arch-desc">
+  <title id="acl-arch-title">Astro Crawler Labyrinth SSG and Edge/SSR Architecture</title>
+  <desc id="acl-arch-desc">Flow diagram showing build-time static decoy ring emission, multi-group robots.txt patching, sitemap sanitization during astro:build:done, and Web-standard Edge or SSR request quarantine via WebCrypto and bounded LRU QuarantineStore.</desc>
+  <defs>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" />
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#3fb950" />
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#f85149" />
+    </marker>
+  </defs>
+
+  <rect width="1080" height="420" rx="14" fill="#0d1117" stroke="#30363d" stroke-width="1.5" />
+
+  <text x="36" y="42" fill="#f0f6fc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="18" font-weight="700">Astro Crawler Labyrinth — Build-Time SSG &amp; Edge/SSR Pipeline</text>
+  <text x="36" y="64" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5">WebCrypto HMAC-SHA256 tokens · Inert &lt;CrawlerTrap /&gt; component · Static ring output · Edge/SSR QuarantineStore</text>
+
+  <!-- Row 1: Build-Time SSG -->
+  <rect x="36" y="96" width="236" height="94" rx="10" fill="#161b22" stroke="#30363d" stroke-width="1.5" />
+  <text x="54" y="123" fill="#f59e0b" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700">1. Astro Integration &amp; Footer</text>
+  <text x="54" y="144" fill="#c9d1d9" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11.5">&lt;CrawlerTrap /&gt;</text>
+  <text x="54" y="162" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5">hidden + aria-hidden=&quot;true&quot;</text>
+  <text x="54" y="178" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5">signed depth-1 entry link</text>
+
+  <line x1="272" y1="143" x2="322" y2="143" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrow-amber)" />
+
+  <rect x="326" y="96" width="356" height="94" rx="10" fill="#161b22" stroke="#f59e0b" stroke-width="1.5" />
+  <text x="344" y="123" fill="#f0f6fc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700">2. astro:build:done (emitStaticLabyrinth)</text>
+  <text x="344" y="144" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5">Emits closed static ring under /crawler-trap/&lt;token&gt;/</text>
+  <text x="344" y="162" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5">patchRobotsTxt(): Disallow across ALL User-agent groups</text>
+  <text x="344" y="178" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5">stripTrapFromSitemapXml(): keeps sitemaps clean</text>
+
+  <line x1="682" y1="143" x2="732" y2="143" stroke="#3fb950" stroke-width="2" marker-end="url(#arrow-green)" />
+
+  <rect x="736" y="96" width="308" height="94" rx="10" fill="#161b22" stroke="#2ea043" stroke-width="1.5" />
+  <text x="754" y="123" fill="#3fb950" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700">Zero-Server SSG Output (dist/)</text>
+  <text x="754" y="144" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5">Every decoy carries noindex, nofollow, noai</text>
+  <text x="754" y="162" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5">Search &amp; citation bots obey robots.txt</text>
+  <text x="754" y="178" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5">Scrapers loop inside bounded static folios</text>
+
+  <!-- Row 2: Optional Edge & SSR Quarantine -->
+  <rect x="36" y="218" width="236" height="114" rx="10" fill="#161b22" stroke="#30363d" stroke-width="1.5" />
+  <text x="54" y="245" fill="#f0f6fc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700">3. Optional Edge / SSR</text>
+  <text x="54" y="266" fill="#c9d1d9" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11">createEdgeLabyrinthHandler()</text>
+  <text x="54" y="284" fill="#c9d1d9" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11">createLabyrinthMiddleware()</text>
+  <text x="54" y="302" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5">Passes /_astro, /robots.txt, etc.</text>
+  <text x="54" y="318" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5">Daily keyed hashClientIp(ip)</text>
+
+  <line x1="272" y1="275" x2="322" y2="275" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrow-amber)" />
+
+  <rect x="326" y="218" width="234" height="114" rx="10" fill="#161b22" stroke="#f59e0b" stroke-width="1.5" />
+  <text x="344" y="245" fill="#f59e0b" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700">QuarantineStore (LRU)</text>
+  <text x="344" y="266" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5">Bounded 4096 digests in RAM</text>
+  <text x="344" y="284" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5">Spares search/citation UAs first</text>
+  <text x="344" y="302" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5">Constant-time verifyTrapToken</text>
+  <text x="344" y="318" fill="#c9d1d9" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11">onViolation(ipDigest, status)</text>
+
+  <line x1="560" y1="252" x2="612" y2="240" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrow-amber)" />
+  <line x1="560" y1="298" x2="612" y2="308" stroke="#f85149" stroke-width="2" marker-end="url(#arrow-red)" />
+
+  <rect x="616" y="206" width="428" height="58" rx="10" fill="#161b22" stroke="#f59e0b" stroke-width="1.5" />
+  <text x="634" y="229" fill="#f0f6fc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700">Strikes 1..strikeThreshold -&gt; HTTP 200 Archival Decoy (HTML or plain)</text>
+  <text x="634" y="248" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5">X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noai, noimageai</text>
+
+  <rect x="616" y="276" width="428" height="58" rx="10" fill="#161b22" stroke="#f85149" stroke-width="1.5" />
+  <text x="634" y="299" fill="#f85149" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700">Strike N+1 or mode: &apos;block&apos; -&gt; HTTP 429 + Retry-After (or 403)</text>
+  <text x="634" y="318" fill="#8b949e" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5">Short-circuits repeat requests from quarantined IP digests before hitting origin routes</text>
+
+  <!-- Footer bar -->
+  <rect x="36" y="358" width="1008" height="38" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1" />
+  <text x="54" y="382" fill="#8b949e" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11.5">MIT License · Zero third-party runtime dependencies · WebCrypto + Fetch Request/Response portable across Workers/Deno/Node</text>
+</svg>
