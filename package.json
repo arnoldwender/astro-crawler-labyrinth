@@ -1,0 +1,72 @@
+{
+  "name": "astro-crawler-labyrinth",
+  "version": "1.0.0",
+  "description": "Local deterministic crawler tarpit integration, accessible-inert CrawlerTrap component, and Web-standard Edge/SSR quarantine handler for Astro.",
+  "type": "module",
+  "license": "LicenseRef-Arnold-Wender-Source-1.0",
+  "private": false,
+  "author": {
+    "name": "Arnold Wender",
+    "url": "https://arnoldwender.com"
+  },
+  "homepage": "https://github.com/arnoldwender/astro-crawler-labyrinth#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arnoldwender/astro-crawler-labyrinth.git"
+  },
+  "bugs": {
+    "url": "https://github.com/arnoldwender/astro-crawler-labyrinth/issues"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "dist",
+    "components",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./components/CrawlerTrap.astro": "./components/CrawlerTrap.astro",
+    "./endpoint": {
+      "types": "./dist/endpoint.d.ts",
+      "import": "./dist/endpoint.js"
+    },
+    "./middleware": {
+      "types": "./dist/middleware.d.ts",
+      "import": "./dist/middleware.js"
+    },
+    "./edge": {
+      "types": "./dist/edge.d.ts",
+      "import": "./dist/edge.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "astro": "^5.0.0 || ^6.0.0 || ^7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "astro": "^7.4.13",
+    "typescript": "^5.7.0",
+    "vitest": "^5.1.1"
+  },
+  "keywords": [
+    "astro",
+    "astro-integration",
+    "robots-txt",
+    "honeypot",
+    "crawler-labyrinth",
+    "tarpit",
+    "gdpr"
+  ]
+}

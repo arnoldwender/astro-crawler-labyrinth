@@ -1,0 +1,41 @@
+name: Bug Report
+description: Report a reproducible defect in astro-crawler-labyrinth
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting an issue. Please avoid sharing real site secrets or raw client IP logs.
+  - type: input
+    id: package-version
+    attributes:
+      label: Package & Astro Versions
+      description: Output of `node -v`, Astro version, and `astro-crawler-labyrinth` version
+      placeholder: "Node 22.x, Astro 7.x, astro-crawler-labyrinth 1.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime-mode
+    attributes:
+      label: Rendering / Deployment Target
+      options:
+        - Static SSG (astro:build:done)
+        - Astro SSR Middleware / Endpoint
+        - Web-Standard Edge Handler (Netlify / Cloudflare / Deno / Node)
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Clear description of expected vs actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal Reproduction
+      description: Config options, test snippet, or HTTP request reproducing the bug.
+    validations:
+      required: true

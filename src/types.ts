@@ -1,0 +1,82 @@
+export type TrapMode = 'hybrid' | 'labyrinth' | 'block';
+
+export type ResponseFormat = 'html' | 'plain';
+
+export interface TrapViolationEvent {
+  readonly timestamp: string;
+  readonly ipDigest: string;
+  readonly userAgentExcerpt: string;
+  readonly routeToken: string;
+  readonly actionTaken: 'decoy_served' | 'quarantined';
+  readonly strikes: number;
+  readonly status: number;
+}
+
+export interface LabyrinthOptions {
+  readonly routePrefix?: string;
+  readonly mode?: TrapMode;
+  readonly format?: ResponseFormat;
+  readonly secret?: string;
+  readonly staticPages?: number;
+  readonly maxDepth?: number;
+  readonly linkCount?: number;
+  readonly strikeThreshold?: number;
+  readonly blockTtlMs?: number;
+  readonly blockStatus?: 429 | 403;
+  readonly patchRobots?: boolean;
+  readonly contentSignal?: boolean;
+  readonly interceptTrainingBots?: boolean;
+  readonly enableSsrEndpoint?: boolean;
+  readonly stripFromSitemap?: boolean;
+  readonly entrySeed?: string;
+  readonly onViolation?: (event: TrapViolationEvent) => void | Promise<void>;
+}
+
+export interface ResolvedLabyrinthConfig {
+  readonly routePrefix: string;
+  readonly mode: TrapMode;
+  readonly format: ResponseFormat;
+  readonly secret: string;
+  readonly staticPages: number;
+  readonly maxDepth: number;
+  readonly linkCount: number;
+  readonly strikeThreshold: number;
+  readonly blockTtlMs: number;
+  readonly blockStatus: 429 | 403;
+  readonly patchRobots: boolean;
+  readonly contentSignal: boolean;
+  readonly interceptTrainingBots: boolean;
+  readonly enableSsrEndpoint: boolean;
+  readonly stripFromSitemap: boolean;
+  readonly entrySeed: string;
+  readonly onViolation?: (event: TrapViolationEvent) => void | Promise<void>;
+}
+
+export interface DecoyDocument {
+  readonly status: 200;
+  readonly contentType: string;
+  readonly title: string;
+  readonly entryCode: string;
+  readonly depth: number;
+  readonly seed: string;
+  readonly childTokens: readonly string[];
+  readonly body: string;
+}
+
+export interface EdgeLabyrinthOptions extends LabyrinthOptions {
+  readonly excludedPrefixes?: readonly string[];
+}
+
+export interface CrawlerTrapProps {
+  readonly routePrefix?: string;
+  readonly count?: number;
+  readonly seed?: string;
+  readonly label?: string;
+  readonly secret?: string;
+}
+
+export interface BaitLink {
+  readonly href: string;
+  readonly label: string;
+  readonly token: string;
+}
