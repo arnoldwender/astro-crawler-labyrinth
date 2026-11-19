@@ -1,0 +1,18 @@
+---
+import { buildBaitLinks } from '../dist/bait.js';
+import type { CrawlerTrapProps } from '../dist/types.js';
+
+export type Props = CrawlerTrapProps;
+
+const links = await buildBaitLinks(Astro.props);
+---
+
+<div hidden aria-hidden="true" data-crawler-labyrinth="1">
+  {
+    links.map((link) => (
+      <a href={link.href} rel="nofollow noopener" tabindex="-1" aria-hidden="true">
+        {link.label}
+      </a>
+    ))
+  }
+</div>
