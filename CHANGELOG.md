@@ -13,3 +13,4 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Standalone Web-standard Edge handler (`createEdgeLabyrinthHandler`), bounded LRU `QuarantineStore`, Astro SSR `createLabyrinthMiddleware`, and `createLabyrinthEndpoint` for `enableSsrEndpoint: true`.
 - Full TypeScript unit suite and end-to-end Astro SSG build test under Vitest (`test/labyrinth.test.ts`).
 - GitHub Actions CI workflow, issue/PR templates, and complete public documentation (`README.md`, `docs/ARCHITECTURE.md`, `docs/DEVELOPER-GUIDE.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`).
+- Released under the MIT License.
