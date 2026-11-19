@@ -25,7 +25,13 @@ function stripInlineComment(line: string): string {
 }
 
 function normalizeRuleCompare(directive: string): string {
-  return directive.replace(/\s*:\s*/, ':').toLowerCase();
+  const colonIdx = directive.indexOf(':');
+  if (colonIdx === -1) {
+    return directive.trim().toLowerCase();
+  }
+  const field = directive.slice(0, colonIdx).trim().toLowerCase();
+  const value = directive.slice(colonIdx + 1).trim();
+  return `${field}:${value}`;
 }
 
 /**
@@ -150,7 +156,7 @@ export function stripTrapFromSitemapXml(xml: string, routePrefix: string, basePa
   const trapPath = `${cleanBase}/${cleanPrefix}`.toLowerCase();
 
   return xml.replace(/[ \t]*<url\b[^>]*>[\s\S]*?<\/url>[ \t]*\r?\n?/gi, (block) => {
-    const locMatch = /<loc>\s*([^<\s]+)\s*<\/loc>/i.exec(block);
+    const locMatch = /<loc(?:\s+[^>]*)?>\s*(?:<!\[CDATA\[)?\s*([^\s<\]]+)/i.exec(block);
     if (!locMatch || !locMatch[1]) {
       return block;
     }
@@ -163,6 +169,11 @@ export function stripTrapFromSitemapXml(xml: string, routePrefix: string, basePa
         const pathStart = pathname.indexOf('/', schemeIdx + 3);
         pathname = pathStart === -1 ? '/' : pathname.slice(pathStart);
       }
+    }
+    try {
+      pathname = decodeURIComponent(pathname);
+    } catch {
+      // Keep raw pathname when malformed percent sequences appear.
     }
     const lowerPath = pathname.toLowerCase();
     if (lowerPath === trapPath || lowerPath.startsWith(`${trapPath}/`)) {

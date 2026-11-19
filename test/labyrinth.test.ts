@@ -11,6 +11,7 @@ import {
   createEdgeLabyrinthHandler,
   createLabyrinthEndpoint,
   createLabyrinthMiddleware,
+  default as crawlerLabyrinth,
   emitStaticLabyrinth,
   generateDecoyDocument,
   hashClientIp,
@@ -93,7 +94,14 @@ describe('WebCrypto Token Signing & Privacy-Safe IP Hashing', () => {
 
     expect(timingSafeEqualHex('a1b2c3d4e5f60708', 'a1b2c3d4e5f60708')).toBe(true);
     expect(timingSafeEqualHex('a1b2c3d4e5f60708', 'a1b2c3d4e5f60709')).toBe(false);
+    expect(timingSafeEqualHex('a1b2c3d4', 'a1b2c3d4e5f6')).toBe(false);
+    expect(timingSafeEqualHex('a1b2c3d4e5f6', 'a1b2c3d4')).toBe(false);
     expect(timingSafeEqualHex('', '')).toBe(false);
+
+    // Seed sanitization aligns uppercase and punctuation-only inputs with WordPress TokenSigner
+    expect(await signTrapToken(2, 'SeedAlpha9', secret)).toMatch(/^2-seedalpha9-[a-f0-9]{16}$/);
+    expect(await signTrapToken(2, '---', secret)).toMatch(/^2-archroot0001-[a-f0-9]{16}$/);
+    expect(await signTrapToken(2, 'ab', secret)).toMatch(/^2-abarch0001-[a-f0-9]{16}$/);
 
     // Pin constant-time bitwise accumulation in source so strict equality mutations cannot survive.
     const cryptoSource = await readFile(resolve(process.cwd(), 'src/crypto.ts'), 'utf8');
@@ -110,13 +118,17 @@ describe('WebCrypto Token Signing & Privacy-Safe IP Hashing', () => {
     expect(d1).not.toBe(otherSecret);
     expect(d1).not.toContain('198.51.100');
 
-    // IPv6 brackets, ports, case, and IPv4-mapped IPv6 normalize identically.
+    // IPv6 brackets, ports, zones, RFC 5952 compression, and IPv4-mapped forms normalize identically.
     expect(normalizeClientIp('[::1]:1234')).toBe('::1');
+    expect(normalizeClientIp('2001:0db8:0000:0000::1')).toBe('2001:db8::1');
+    expect(normalizeClientIp('0:0:0:0:0:ffff:198.51.100.7')).toBe('198.51.100.7');
+    expect(normalizeClientIp('::ffff:c633:6407')).toBe('198.51.100.7');
+    expect(normalizeClientIp('[fe80::1%eth0]:443')).toBe('fe80::1');
     expect(await hashClientIp('::1', secret, '2026-11-19')).toBe(
       await hashClientIp('[::1]:8443', secret, '2026-11-19'),
     );
     expect(await hashClientIp('2001:DB8::1', secret, '2026-11-19')).toBe(
-      await hashClientIp('2001:db8::1', secret, '2026-11-19'),
+      await hashClientIp('2001:0db8:0000:0000::1', secret, '2026-11-19'),
     );
     expect(await hashClientIp('::ffff:192.0.2.9', secret, '2026-11-19')).toBe(
       await hashClientIp('192.0.2.9:443', secret, '2026-11-19'),
@@ -197,6 +209,10 @@ describe('RFC 9309 robots.txt & Sitemap XML Sanitization', () => {
     expect(commented.match(/Disallow: \/docs\/my-trap\//g)).toHaveLength(1);
     expect(commented).toContain('Content-Signal: search=yes, ai-train=no');
     expect(patchRobotsTxt(commented, 'my-trap', { contentSignal: true, basePath: '/docs' })).toBe(commented);
+
+    // Preserve RFC 9309 path case sensitivity: mixed-case /My-Trap/ does not satisfy /my-trap/
+    const mixedCase = patchRobotsTxt('User-agent: *\nDisallow: /My-Trap/\n', 'my-trap');
+    expect(mixedCase).toContain('Disallow: /my-trap/');
   });
 
   it('removes trap URLs regardless of element order while preserving sibling path stems', () => {
@@ -206,7 +222,7 @@ describe('RFC 9309 robots.txt & Sitemap XML Sanitization', () => {
       '  <url><loc>https://example.test/about/</loc></url>',
       '  <url><loc>https://example.test/blog/my-trap/</loc></url>',
       '  <url><loc>https://example.test/docs/my-trap-guide/</loc></url>',
-      '  <url><lastmod>2026-11-19</lastmod><loc>https://example.test/docs/my-trap/1-abc-123/</loc></url>',
+      '  <url><lastmod>2026-11-19</lastmod><loc xml:lang="en"><![CDATA[https://example.test/docs/%6dy-trap/1-abc-123/]]></loc></url>',
       '</urlset>',
     ].join('\n');
 
@@ -218,7 +234,7 @@ describe('RFC 9309 robots.txt & Sitemap XML Sanitization', () => {
 
     // When trap lives at root `/my-trap/`, paths under `/docs/my-trap/...` stay untouched.
     const rootCleaned = stripTrapFromSitemapXml(xml, 'my-trap');
-    expect(rootCleaned).toContain('https://example.test/docs/my-trap/1-abc-123/');
+    expect(rootCleaned).toContain('https://example.test/docs/%6dy-trap/1-abc-123/');
   });
 });
 
@@ -242,6 +258,32 @@ describe('Edge Handler, Quarantine Store, SSR Endpoint & Astro Middleware', () =
     for (let s = 1; s <= 10; s++) {
       expect(labStore.recordHit('bot-lab', 'labyrinth', 2, 60_000, 1_000 + s).quarantined).toBe(false);
     }
+
+    // Verify expired cleanup in evictOldest reclaims expired entries before dropping active ones
+    const expStore = new QuarantineStore(64);
+    for (let i = 0; i < 64; i++) {
+      expStore.recordHit(`stale-${i}`, 'hybrid', 5, 1_000, 1_000);
+    }
+    expStore.recordHit('fresh-after-expiry', 'hybrid', 5, 60_000, 5_000);
+    expect(expStore.size()).toBe(1);
+
+    // Verify isQuarantined refreshes LRU recency so hot bans survive capacity eviction over colder bans
+    const lruStore = new QuarantineStore(64);
+    lruStore.recordHit('ban-0', 'block', 5, 60_000, 1_000);
+    for (let i = 1; i <= 63; i++) {
+      lruStore.recordHit(`ban-${i}`, 'block', 5, 60_000, 1_000 + i);
+    }
+    expect(lruStore.isQuarantined('ban-0', 2_000).quarantined).toBe(true);
+    lruStore.recordHit('ban-64', 'block', 5, 60_000, 2_100);
+    expect(lruStore.isQuarantined('ban-0', 2_200).quarantined).toBe(true);
+    expect(lruStore.isQuarantined('ban-1', 2_200).quarantined).toBe(false);
+
+    // Verify non-finite maxEntries safely defaults to bounded 4096 cap instead of NaN
+    const nanStore = new QuarantineStore(Number.NaN);
+    for (let i = 0; i < 70; i++) {
+      nanStore.recordHit(`ok-${i}`, 'hybrid', 5, 60_000, 1_000);
+    }
+    expect(nanStore.size()).toBe(70);
   });
 
   it('enforces quarantine, 403 mode, segment exclusions, encoded paths, HEAD empty bodies, and safe error handling', async () => {
@@ -329,6 +371,37 @@ describe('Edge Handler, Quarantine Store, SSR Endpoint & Astro Middleware', () =
     // Next IP-less ordinary page stays unaffected
     expect(await blockMode(new Request('https://example.test/pricing/'))).toBeNull();
 
+    // HEAD block responses must carry empty body cleanly
+    const headBlock = await blockMode(new Request('https://example.test/crawler-trap/1-seed-0000/', { method: 'HEAD' }));
+    expect(headBlock?.status).toBe(403);
+    expect(await headBlock?.text()).toBe('');
+
+    // X-Real-IP under opt-in trustProxyHeaders tracks strikes across requests; forged depth > maxDepth is rejected
+    const trustedProxyHandler = createEdgeLabyrinthHandler({
+      mode: 'hybrid',
+      maxDepth: 4,
+      strikeThreshold: 2,
+      blockStatus: 403,
+      trustProxyHeaders: true,
+      secret: 'unit-fixture-proxy-secret-123456',
+    });
+    const depth16Token = await signTrapToken(16, 'forged99', 'unit-fixture-proxy-secret-123456');
+    const overDepth = await trustedProxyHandler(
+      new Request(`https://example.test/crawler-trap/${depth16Token}/`, { headers: { 'x-real-ip': '198.51.100.55' } }),
+    );
+    expect(await overDepth?.text()).toContain('(Section 1)');
+    await trustedProxyHandler(
+      new Request('https://example.test/crawler-trap/1-seed0001-0000/', { headers: { 'x-real-ip': '198.51.100.55' } }),
+    );
+    const quarantinedRealIp = await trustedProxyHandler(
+      new Request('https://example.test/crawler-trap/1-seed0002-0000/', { headers: { 'x-real-ip': '198.51.100.55' } }),
+    );
+    expect(quarantinedRealIp?.status).toBe(403);
+    expect(
+      (await trustedProxyHandler(new Request('https://example.test/normal/', { headers: { 'x-real-ip': '198.51.100.55' } })))
+        ?.status,
+    ).toBe(403);
+
     // Middleware skips prerendered contexts cleanly without reading headers/clientAddress
     const mw = createLabyrinthMiddleware({ secret: 'unit-fixture-edge-key-not-secret', interceptTrainingBots: true });
     const prerenderedRes = await mw(
@@ -367,6 +440,50 @@ describe('Edge Handler, Quarantine Store, SSR Endpoint & Astro Middleware', () =
     } as never);
     expect(missRes.status).toBe(404);
     expect(missRes.headers.get('X-Robots-Tag')).toBe('noindex, nofollow');
+
+    const headMissRes = await endpoint({
+      request: new Request('https://example.test/ordinary-page/', { method: 'HEAD' }),
+      clientAddress: '192.0.2.78',
+    } as never);
+    expect(headMissRes.status).toBe(404);
+    expect(await headMissRes.text()).toBe('');
+  });
+
+  it('enforces fail-closed Vite transform, default-secret warnings, and prefix fallback logging', () => {
+    const warnings: string[] = [];
+    let viteCfg: Record<string, unknown> = {};
+    const integration = crawlerLabyrinth({
+      enableSsrEndpoint: true,
+      routePrefix: 'api',
+      secret: 'short',
+    });
+    const setup = integration.hooks['astro:config:setup'];
+    expect(setup).toBeTypeOf('function');
+    setup!({
+      config: { base: '/', trailingSlash: 'ignore' },
+      injectRoute: () => undefined,
+      addMiddleware: () => undefined,
+      updateConfig: (c: Record<string, unknown>) => {
+        viteCfg = c;
+      },
+      logger: {
+        info: () => undefined,
+        warn: (msg: string) => {
+          warnings.push(msg);
+        },
+      },
+    } as never);
+
+    expect(warnings.some((w) => w.includes('DEFAULT_SECRET'))).toBe(true);
+    expect(warnings.some((w) => w.includes('routePrefix'))).toBe(true);
+
+    const plugin = (viteCfg.vite as { plugins: Array<{ transform: Function }> }).plugins[0]!;
+    const stubCode = 'export const INJECTED_CONFIG = null;';
+    // Fail-closed on client or unknown environment unless ssr: true
+    expect(plugin.transform.call({ environment: { name: 'client' } }, stubCode, 'dist/runtime-config.js', { ssr: false })).toBeNull();
+    expect(plugin.transform.call({}, stubCode, 'dist/runtime-config.js')).toBeNull();
+    const ssrRes = plugin.transform.call({ environment: { name: 'ssr' } }, stubCode, 'dist/runtime-config.js', { ssr: true });
+    expect(ssrRes?.code).toContain('INJECTED_CONFIG');
   });
 });
 
@@ -474,5 +591,16 @@ describe('End-to-End Astro SSG Build & Component Integration', () => {
     const summary2 = await emitStaticLabyrinth(outDir, resolvedChanged);
     expect(summary2.pagesWritten).toBe(4);
     expect(await readdir(join(outDir, 'crawler-trap'))).toHaveLength(4);
+
+    // Enabling enableSsrEndpoint skips static decoy HTML generation while still patching robots.txt
+    const ssrConfig = resolveConfig({
+      routePrefix: 'crawler-trap',
+      basePath: '/docs',
+      enableSsrEndpoint: true,
+      secret: trapSecret,
+    });
+    const ssrSummary = await emitStaticLabyrinth(outDir, ssrConfig);
+    expect(ssrSummary.pagesWritten).toBe(0);
+    expect(ssrSummary.robotsPatched).toBe(true);
   }, 30_000);
 });

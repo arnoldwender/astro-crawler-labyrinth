@@ -9,7 +9,8 @@ export class QuarantineStore {
   private readonly maxEntries: number;
 
   constructor(maxEntries = 4096) {
-    this.maxEntries = Math.max(64, Math.trunc(maxEntries));
+    const safeMax = Number.isFinite(maxEntries) ? Math.trunc(maxEntries) : 4096;
+    this.maxEntries = Math.max(64, safeMax);
   }
 
   isQuarantined(ipDigest: string, nowMs = Date.now()): { quarantined: boolean; retryAfterSeconds: number; strikes: number } {
