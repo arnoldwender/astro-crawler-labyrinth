@@ -33,6 +33,41 @@ export function timingSafeEqualHex(a: string, b: string): boolean {
   return diff === 0;
 }
 
+/**
+ * Normalizes client IP strings so IPv6 case variants, bracketed `[::1]:port`,
+ * IPv4 `ip:port`, and zone suffixes resolve deterministically to the same digest.
+ */
+export function normalizeClientIp(rawIp: string): string {
+  let ip = rawIp.trim();
+  if (!ip) {
+    return '';
+  }
+
+  const bracketed = /^\[([^\]]+)\](?::\d{1,5})?$/.exec(ip);
+  if (bracketed && bracketed[1]) {
+    ip = bracketed[1];
+  } else {
+    const ipv4Port = /^(\d{1,3}(?:\.\d{1,3}){3}):\d{1,5}$/.exec(ip);
+    if (ipv4Port && ipv4Port[1]) {
+      ip = ipv4Port[1];
+    }
+  }
+
+  const zoneIdx = ip.indexOf('%');
+  if (zoneIdx > 0) {
+    ip = ip.slice(0, zoneIdx);
+  }
+
+  ip = ip.toLowerCase();
+  if (ip.startsWith('::ffff:')) {
+    const mapped = ip.slice(7);
+    if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(mapped)) {
+      return mapped;
+    }
+  }
+  return ip;
+}
+
 export async function signTrapToken(depth: number, seed: string, secret: string): Promise<string> {
   const boundedDepth = Math.max(1, Math.min(16, Math.trunc(depth)));
   const cleanSeed = sanitizeSeed(seed);
@@ -64,10 +99,11 @@ export async function verifyTrapToken(token: string, secret: string): Promise<Pa
 }
 
 /**
- * Privacy-safe daily keyed HMAC digest of a client IP. Raw IPs are never stored.
+ * Privacy-safe daily keyed HMAC digest of a normalized client IP. Raw IPs are never stored.
  */
 export async function hashClientIp(rawIp: string, secret: string, utcDay?: string): Promise<string> {
   const day = utcDay ?? new Date().toISOString().slice(0, 10);
-  const ip = rawIp.trim().length > 0 ? rawIp.trim() : '0.0.0.0';
+  const normalized = normalizeClientIp(rawIp);
+  const ip = normalized.length > 0 ? normalized : '0.0.0.0';
   return hmacSha256Hex(`${ip}|${day}`, secret);
 }

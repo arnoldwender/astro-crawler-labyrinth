@@ -30,26 +30,31 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./components/CrawlerTrap.astro": "./components/CrawlerTrap.astro",
     "./endpoint": {
       "types": "./dist/endpoint.d.ts",
-      "import": "./dist/endpoint.js"
+      "import": "./dist/endpoint.js",
+      "default": "./dist/endpoint.js"
     },
     "./middleware": {
       "types": "./dist/middleware.d.ts",
-      "import": "./dist/middleware.js"
+      "import": "./dist/middleware.js",
+      "default": "./dist/middleware.js"
     },
     "./edge": {
       "types": "./dist/edge.d.ts",
-      "import": "./dist/edge.js"
+      "import": "./dist/edge.js",
+      "default": "./dist/edge.js"
     }
   },
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:mutations": "node scripts/run-mutations.mjs"
   },
   "peerDependencies": {
     "astro": "^5.0.0 || ^6.0.0 || ^7.0.0"

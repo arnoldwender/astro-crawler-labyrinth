@@ -75,6 +75,17 @@ export class QuarantineStore {
         this.entries.delete(key);
       }
     }
+    // Prefer evicting unquarantined entries so spoofed/low-strike floods cannot displace active bans.
+    if (this.entries.size >= this.maxEntries) {
+      for (const [key, value] of this.entries) {
+        if (this.entries.size < this.maxEntries) {
+          break;
+        }
+        if (value.quarantinedUntil <= nowMs) {
+          this.entries.delete(key);
+        }
+      }
+    }
     while (this.entries.size >= this.maxEntries) {
       const oldestKey = this.entries.keys().next().value;
       if (!oldestKey) {

@@ -2,6 +2,8 @@ export type TrapMode = 'hybrid' | 'labyrinth' | 'block';
 
 export type ResponseFormat = 'html' | 'plain';
 
+export type TrailingSlashMode = 'always' | 'never' | 'ignore';
+
 export interface TrapViolationEvent {
   readonly timestamp: string;
   readonly ipDigest: string;
@@ -14,6 +16,8 @@ export interface TrapViolationEvent {
 
 export interface LabyrinthOptions {
   readonly routePrefix?: string;
+  readonly basePath?: string;
+  readonly trailingSlash?: TrailingSlashMode;
   readonly mode?: TrapMode;
   readonly format?: ResponseFormat;
   readonly secret?: string;
@@ -28,15 +32,19 @@ export interface LabyrinthOptions {
   readonly interceptTrainingBots?: boolean;
   readonly enableSsrEndpoint?: boolean;
   readonly stripFromSitemap?: boolean;
+  readonly trustProxyHeaders?: boolean;
   readonly entrySeed?: string;
   readonly onViolation?: (event: TrapViolationEvent) => void | Promise<void>;
 }
 
 export interface ResolvedLabyrinthConfig {
   readonly routePrefix: string;
+  readonly basePath: string;
+  readonly trailingSlash: TrailingSlashMode;
   readonly mode: TrapMode;
   readonly format: ResponseFormat;
   readonly secret: string;
+  readonly usesDefaultSecret: boolean;
   readonly staticPages: number;
   readonly maxDepth: number;
   readonly linkCount: number;
@@ -48,6 +56,7 @@ export interface ResolvedLabyrinthConfig {
   readonly interceptTrainingBots: boolean;
   readonly enableSsrEndpoint: boolean;
   readonly stripFromSitemap: boolean;
+  readonly trustProxyHeaders: boolean;
   readonly entrySeed: string;
   readonly onViolation?: (event: TrapViolationEvent) => void | Promise<void>;
 }
@@ -69,6 +78,8 @@ export interface EdgeLabyrinthOptions extends LabyrinthOptions {
 
 export interface CrawlerTrapProps {
   readonly routePrefix?: string;
+  readonly basePath?: string;
+  readonly trailingSlash?: TrailingSlashMode;
   readonly count?: number;
   readonly seed?: string;
   readonly label?: string;

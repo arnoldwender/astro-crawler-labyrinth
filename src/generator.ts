@@ -1,6 +1,12 @@
-import { sanitizeRoutePrefix, sanitizeSeed } from './config.js';
+import {
+  formatTrapPath,
+  normalizeBasePath,
+  sanitizeRoutePrefix,
+  sanitizeSeed,
+  sanitizeTrailingSlash,
+} from './config.js';
 import { hmacSha256Hex, signTrapToken } from './crypto.js';
-import type { DecoyDocument, ResponseFormat } from './types.js';
+import type { DecoyDocument, ResponseFormat, TrailingSlashMode } from './types.js';
 
 const COLLECTIONS: readonly string[] = [
   'Municipal Register',
@@ -63,6 +69,8 @@ export interface GenerateDecoyParams {
   readonly seed: string;
   readonly secret: string;
   readonly routePrefix?: string;
+  readonly basePath?: string;
+  readonly trailingSlash?: TrailingSlashMode;
   readonly format?: ResponseFormat;
   readonly maxDepth?: number;
   readonly linksPerPage?: number;
@@ -74,6 +82,8 @@ export async function generateDecoyDocument(params: GenerateDecoyParams): Promis
   const boundedMax = Math.max(1, Math.min(16, Math.trunc(params.maxDepth ?? 8)));
   const cleanSeed = sanitizeSeed(params.seed);
   const prefix = sanitizeRoutePrefix(params.routePrefix);
+  const basePath = normalizeBasePath(params.basePath);
+  const trailingSlash = sanitizeTrailingSlash(params.trailingSlash);
   const format: ResponseFormat = params.format === 'plain' ? 'plain' : 'html';
 
   const digest = await hmacSha256Hex(`decoy|${boundedDepth}|${cleanSeed}`, params.secret);
@@ -115,8 +125,8 @@ export async function generateDecoyDocument(params: GenerateDecoyParams): Promis
 
   const body =
     format === 'plain'
-      ? renderDecoyPlain(title, entryCode, paragraphs, childTokens, prefix)
-      : renderDecoyHtml(title, entryCode, paragraphs, childTokens, prefix);
+      ? renderDecoyPlain(title, entryCode, paragraphs, childTokens, prefix, basePath, trailingSlash)
+      : renderDecoyHtml(title, entryCode, paragraphs, childTokens, prefix, basePath, trailingSlash);
 
   return {
     status: 200,
@@ -136,6 +146,8 @@ function renderDecoyHtml(
   paragraphs: readonly string[],
   childTokens: readonly string[],
   routePrefix: string,
+  basePath: string,
+  trailingSlash: TrailingSlashMode,
 ): string {
   const lines: string[] = [
     '<!doctype html>',
@@ -158,7 +170,7 @@ function renderDecoyHtml(
 
   lines.push('<nav aria-label="Cross-References">', '<ul>');
   childTokens.forEach((token, idx) => {
-    const href = `/${routePrefix}/${encodeURIComponent(token)}/`;
+    const href = formatTrapPath(basePath, routePrefix, token, trailingSlash);
     const label = `Cross-Reference Entry ${idx + 1} (${token.slice(0, 14)})`;
     lines.push(`<li><a href="${escapeHtml(href)}" rel="nofollow noopener">${escapeHtml(label)}</a></li>`);
   });
@@ -173,7 +185,10 @@ function renderDecoyPlain(
   paragraphs: readonly string[],
   childTokens: readonly string[],
   routePrefix: string,
+  basePath: string,
+  trailingSlash: TrailingSlashMode,
 ): string {
+  const suffix = trailingSlash === 'never' ? '' : '/';
   const lines: string[] = [
     title,
     '='.repeat(Math.min(72, title.length)),
@@ -185,7 +200,7 @@ function renderDecoyPlain(
   }
   lines.push('Cross-References:');
   for (const token of childTokens) {
-    lines.push(`- /${routePrefix}/${token}/`);
+    lines.push(`- ${basePath}/${routePrefix}/${token}${suffix}`);
   }
   return `${lines.join('\n')}\n`;
 }
