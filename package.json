@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Local deterministic crawler tarpit integration, accessible-inert CrawlerTrap component, and Web-standard Edge/SSR quarantine handler for Astro.",
   "type": "module",
-  "license": "LicenseRef-Arnold-Wender-Source-1.0",
+  "license": "MIT",
   "private": false,
   "author": {
     "name": "Arnold Wender",
