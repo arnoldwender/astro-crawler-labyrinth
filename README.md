@@ -23,6 +23,7 @@
 | **Companion WordPress Plugin** | [arnoldwender/crawler-labyrinth](https://github.com/arnoldwender/crawler-labyrinth) |
 | **Runtime & Peer Support** | Node.js `>= 20.0.0` · Astro `^5 \|\| ^6 \|\| ^7` · WebCrypto & Fetch Standard |
 | **License** | [MIT License](LICENSE) |
+| **Support & Liability** | **Zero support** — reproducible bugs on [GitHub Issues](https://github.com/arnoldwender/astro-crawler-labyrinth/issues) only · **no private support** · **AS IS / no liability** ([SUPPORT.md](SUPPORT.md)) |
 | **Verification** | `npm run typecheck && npm run build && npm test && npm pack --dry-run` |
 
 ---
@@ -211,7 +212,8 @@ npm test
 - [Architecture Guide](docs/ARCHITECTURE.md) — module boundaries, HMAC token grammar, RFC 9309 state machine, and Edge/SSG data flow.
 - [Developer Guide](docs/DEVELOPER-GUIDE.md) — exported API surface, testing strategy, build verification, and release workflow.
 - [Contributing](CONTRIBUTING.md) — pull request requirements and coding standards.
-- [Security Policy](SECURITY.md) — cryptographic design choices and private vulnerability reporting.
+- [Support Policy](SUPPORT.md) — zero-support terms, GitHub-only bug reporting, and no-liability disclaimer.
+- [Security Policy](SECURITY.md) — cryptographic design choices and private vulnerability reporting on GitHub.
 - [Code of Conduct](CODE_OF_CONDUCT.md) — community participation standards.
 - [Changelog](CHANGELOG.md) — release history.
 
@@ -220,6 +222,17 @@ npm test
 ## Companion WordPress Implementation
 
 Looking for the WordPress counterpart sharing the same RFC 9309, accessible-inert bait, and HMAC-signed token design? See [crawler-labyrinth](https://github.com/arnoldwender/crawler-labyrinth).
+
+---
+
+## Support, Bug Reports & Zero Liability
+
+> **Zero Support & Use at Your Own Risk:** See [SUPPORT.md](SUPPORT.md).
+
+- **Zero support:** This package is published as-is with **zero technical, setup, deployment, or user support**, and zero response SLA.
+- **GitHub Issues only:** Reproducible software defects must be reported **exclusively** via [GitHub Issues](https://github.com/arnoldwender/astro-crawler-labyrinth/issues) (or [GitHub Security Advisories](https://github.com/arnoldwender/astro-crawler-labyrinth/security/advisories/new) for security vulnerabilities). Opening an issue creates no guarantee of a reply or fix.
+- **No private support:** **Do not** send private support requests via email, `arnoldwender.com`, or direct messages. Private inquiries are never answered.
+- **Zero responsibility & no warranty ("AS IS"):** Under the [MIT License](LICENSE), this software is provided **"AS IS"** without warranty of any kind, and the author accepts **zero responsibility or liability** for any damages, site outages, compute usage, false positives, or search/crawler indexing effects arising from its use.
 
 ---
 

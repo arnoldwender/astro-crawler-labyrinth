@@ -2,6 +2,14 @@
 
 Contributions that improve correctness, runtime compatibility, accessibility, or test coverage are welcome.
 
+## Support & Issue Scope
+
+**Zero technical, setup, or private support is provided.** See [SUPPORT.md](SUPPORT.md):
+
+- Report reproducible code defects **exclusively** via public [GitHub Issues](https://github.com/arnoldwender/astro-crawler-labyrinth/issues).
+- **Do not** contact the author privately via email, `arnoldwender.com`, or direct messages — private inquiries are never answered.
+- Issues and pull requests carry no guaranteed response or maintenance SLA, and the software is provided strictly **"AS IS"** without warranty or liability.
+
 ---
 
 ## Development Setup
