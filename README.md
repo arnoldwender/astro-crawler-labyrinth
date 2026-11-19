@@ -192,4 +192,4 @@ Looking for the WordPress counterpart sharing the same RFC 9309, accessible-iner
 
 ## License
 
-Licensed under the [Arnold Wender Source License, Version 1.0](LICENSE) (`LicenseRef-Arnold-Wender-Source-1.0`). Commercial and non-commercial use, modification, and redistribution are permitted under the conditions in [LICENSE](LICENSE).
+Licensed under the [MIT License](LICENSE).

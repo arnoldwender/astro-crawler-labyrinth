@@ -30,4 +30,4 @@ Contributions that improve correctness, runtime compatibility, accessibility, or
 
 ## Licensing of Contributions
 
-By submitting a pull request or patch to this repository, you agree to Section 7 of the [Arnold Wender Source License, Version 1.0](LICENSE) (`LicenseRef-Arnold-Wender-Source-1.0`).
+By submitting a pull request or patch to this repository, you agree that your contributions will be licensed under the [MIT License](LICENSE).
