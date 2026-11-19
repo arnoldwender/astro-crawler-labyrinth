@@ -1,0 +1,17 @@
+name: Feature Request
+description: Propose a focused enhancement or runtime adapter
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Proposed Change
+      description: What problem does this solve, and how should it fit into the existing SSG/Edge pipeline?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Constraints & Compatibility
+      description: Accessibility, robots.txt RFC 9309, GDPR/privacy, or bundle-size considerations.
