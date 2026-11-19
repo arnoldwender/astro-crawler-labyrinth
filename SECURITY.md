@@ -20,9 +20,9 @@
 
 ## Reporting a Vulnerability
 
-Please **do not** open a public GitHub issue for security vulnerabilities.
+Please **do not** open a public GitHub issue for security vulnerabilities, and **do not** send private vulnerability inquiries via email, `arnoldwender.com`, or direct messages (private channels are unmonitored for support).
 
-Instead, submit a private report via [GitHub Security Advisories](https://github.com/arnoldwender/astro-crawler-labyrinth/security/advisories/new) or through the contact details listed on [arnoldwender.com](https://arnoldwender.com).
+Instead, submit a private report **exclusively** via [GitHub Security Advisories](https://github.com/arnoldwender/astro-crawler-labyrinth/security/advisories/new).
 
 Include:
 
@@ -30,4 +30,4 @@ Include:
 - Minimal steps or request payload to reproduce the issue.
 - Potential impact (such as token forgery, cache poisoning, quarantine bypass, or PII exposure).
 
-Confirmed vulnerabilities will be acknowledged and patched before public advisory disclosure.
+This project carries **zero technical or user support** and zero SLA. Reports submitted via GitHub Security Advisories are reviewed strictly on a best-effort basis without warranty, response obligation, or author liability ("AS IS" under [LICENSE](LICENSE)).
