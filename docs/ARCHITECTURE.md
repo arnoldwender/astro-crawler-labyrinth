@@ -14,15 +14,17 @@
 astro.config.mjs ──▶ src/integration.ts (crawlerLabyrinth, emitStaticLabyrinth)
                           │
                           ├──▶ astro:config:setup
-                          │       ├── stores resolved config via Symbol.for('astro-crawler-labyrinth.config')
-                          │       └── optionally injects endpoint + pre-middleware (enableSsrEndpoint)
+                          │       ├── stores resolved config via globalThis symbol + Vite runtime-config transform
+                          │       ├── sets vite.ssr.noExternal: ['astro-crawler-labyrinth']
+                          │       ├── propagates basePath & trailingSlash from Astro config
+                          │       └── optionally injects endpoint (prerender: false) + pre-middleware
                           │
                           ├──▶ components/CrawlerTrap.astro ──▶ src/bait.ts (buildBaitLinks)
                           │
                           └──▶ astro:build:done
                                   ├── emitStaticLabyrinth() ──▶ src/generator.ts + src/crypto.ts
                                   ├── patchRobotsTxt()      ──▶ src/robots.ts (RFC 9309 multi-group)
-                                  └── stripTrapFromSitemapXml()
+                                  └── stripTrapFromSitemapXml() (recursive sitemap*.xml scan)
 ```
 
 ### Runtime & Edge Pipeline
@@ -30,17 +32,19 @@ astro.config.mjs ──▶ src/integration.ts (crawlerLabyrinth, emitStaticLabyr
 ```text
 Incoming Request
    │
-   ├─ Excluded prefix (`/_astro`, `/_assets`, `/.well-known`, `/robots.txt`, `/sitemap`, `/media`, `/favicon`, `/api`)
-   │     └─▶ return null (pass through)
+   ├─ Middleware skips static builds (`context.isPrerendered === true`)
    │
-   ├─ Quarantined IP digest (`hashClientIp(ip, secret)` in `QuarantineStore`)
-   │     └─▶ HTTP 429 (`Retry-After`) or 403 + `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noai, noimageai`
+   ├─ Path normalization: safely URL-decode + collapse slashes + strip basePath
    │
-   ├─ Route matches `/^\/<routePrefix>(?:\/([a-zA-Z0-9_-]{1,96}))?\/?$/`
-   │  OR (`interceptTrainingBots && isTrainingOnlyUserAgent(ua)`)
-   │     ├─ recordHit() in `QuarantineStore`:
-   │     │     ├─ strikes > strikeThreshold (or mode === 'block') ──▶ emit TrapViolationEvent + block response
-   │     │     └─ otherwise ──▶ verifyTrapToken() ─▶ generateDecoyDocument() ─▶ HTTP 200 HTML/plain + noai headers
+   ├─ Route matches `/^\/<routePrefix>(?:\/([a-zA-Z0-9_-]{1,96}))?\/?$/i`
+   │  OR (not excluded segment AND `interceptTrainingBots && isTrainingOnlyUserAgent(ua)`)
+   │     │
+   │     ├─ Missing client IP (and `trustProxyHeaders: false`): serve stateless decoy (`null` on HEAD), skip IP quarantine pooling
+   │     ├─ Quarantined IP digest (`hashClientIp(normalizeClientIp(ip), secret)` in `QuarantineStore`)
+   │     │     └─▶ HTTP 429 (`Retry-After`) or 403 + `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noai, noimageai`
+   │     └─ recordHit() in `QuarantineStore` (active bans protected from low-strike LRU eviction):
+   │           ├─ strikes > strikeThreshold (or mode === 'block') ──▶ emit TrapViolationEvent + block response
+   │           └─ otherwise ──▶ verifyTrapToken() (depth <= maxDepth) ─▶ generateDecoyDocument() ─▶ HTTP 200 HTML/plain + noai headers (`null` body on HEAD)
    │
    └─ Normal request ─▶ return null (next middleware / static file)
 ```
@@ -51,18 +55,19 @@ Incoming Request
 
 | Module | Responsibility |
 | :--- | :--- |
-| `src/types.ts` | Read-only TypeScript interfaces for integration options, decoy documents, bait links, and violation events. |
-| `src/config.ts` | Option normalization, bounded integers, reserved-prefix rejection, `ALLOWED_SEARCH_UA_TOKENS` vs `TRAINING_ONLY_UA_TOKENS`, and process-wide `globalThis[Symbol.for('astro-crawler-labyrinth.config')]` sharing. |
-| `src/crypto.ts` | WebCrypto HMAC-SHA256 signing (`hmacSha256Hex`, `signTrapToken`, `verifyTrapToken`), constant-time hex comparison (`timingSafeEqualHex`), and daily salted IP digests (`hashClientIp`). |
-| `src/bait.ts` | Deterministic entry link builder (`buildBaitLinks`) synchronizing `<CrawlerTrap />` with `emitStaticLabyrinth`. |
-| `components/CrawlerTrap.astro` | Accessible-inert container (`hidden`, `aria-hidden="true"`, `data-crawler-labyrinth="1"`) containing `tabindex="-1"`, `rel="nofollow noopener"` bait links. |
+| `src/types.ts` | Read-only TypeScript interfaces for integration options (`TrailingSlashMode`, `basePath`, `trustProxyHeaders`, `usesDefaultSecret`), decoy documents, bait links, and violation events. |
+| `src/runtime-config.ts` | Holds serializable build-injected `INJECTED_CONFIG` populated in SSR server bundles via Vite `transform`. |
+| `src/config.ts` | Option normalization, bounded integers, reserved-prefix rejection, `ALLOWED_SEARCH_UA_TOKENS` vs `TRAINING_ONLY_UA_TOKENS`, `basePath`/`trailingSlash` helpers, and config sharing across build/SSR. |
+| `src/crypto.ts` | WebCrypto HMAC-SHA256 signing (`hmacSha256Hex`, `signTrapToken`, `verifyTrapToken`), constant-time hex comparison (`timingSafeEqualHex`), IP canonicalization (`normalizeClientIp`), and daily salted IP digests (`hashClientIp`). |
+| `src/bait.ts` | Deterministic entry link builder (`buildBaitLinks`) synchronizing `<CrawlerTrap />` (including `basePath` and `trailingSlash`) with `emitStaticLabyrinth`. |
+| `components/CrawlerTrap.astro` | Accessible-inert container (`hidden`, `inert`, `aria-hidden="true"`, `data-crawler-labyrinth="1"`) containing `tabindex="-1"`, `rel="nofollow noopener"` bait links. |
 | `src/generator.ts` | Deterministic archival corpus generator (`generateDecoyDocument`) producing unique headings, folio codes, paragraphs, and child ring tokens without `<script>` tags. |
-| `src/robots.ts` | RFC 9309 multi-group `robots.txt` injector (`patchRobotsTxt`) and sitemap `<url>` sanitizer (`stripTrapFromSitemapXml`). |
-| `src/quarantine.ts` | Bounded LRU strike tracker (`QuarantineStore`, default `4096` entries, floor `64`) evicting expired and oldest records deterministically. |
-| `src/edge.ts` | Web-standard `createEdgeLabyrinthHandler` inspecting proxy IP headers (`cf-connecting-ip`, `x-nf-client-connection-ip`, first `x-forwarded-for`, or explicit `clientIp`). |
-| `src/endpoint.ts` | Astro `APIRoute` factory (`createLabyrinthEndpoint`) + default `GET` handler returning `404` (`noindex, nofollow`) for non-trap misses. |
-| `src/middleware.ts` | Astro `MiddlewareHandler` factory (`createLabyrinthMiddleware`) + default `onRequest` hook delegating non-matching traffic to `next()`. |
-| `src/integration.ts` | Astro integration lifecycle hooks (`astro:config:setup`, `astro:build:done`). |
+| `src/robots.ts` | RFC 9309 multi-group `robots.txt` injector (`patchRobotsTxt`, handling inline `#` comments, empty groups, and CRLF) and order-independent sitemap `<url>` sanitizer (`stripTrapFromSitemapXml`). |
+| `src/quarantine.ts` | Bounded LRU strike tracker (`QuarantineStore`, default `4096` entries, floor `64`) evicting expired and non-quarantined entries before overflowing active bans. |
+| `src/edge.ts` | Web-standard `createEdgeLabyrinthHandler` with opt-in `trustProxyHeaders` (`cf-connecting-ip`, `x-nf-client-connection-ip`, `x-real-ip`, `x-forwarded-for`), segment-bounded exclusions, and `HEAD` support. |
+| `src/endpoint.ts` | Astro `APIRoute` factory (`createLabyrinthEndpoint`, `export const prerender = false`) + `ALL` handler supporting `GET`/`HEAD` and returning `404` (`noindex, nofollow`) for non-trap misses. |
+| `src/middleware.ts` | Astro `MiddlewareHandler` factory (`createLabyrinthMiddleware`) skipping prerendered routes (`context.isPrerendered`) and delegating non-matching traffic to `next()`. |
+| `src/integration.ts` | Astro integration lifecycle hooks (`astro:config:setup`, `astro:build:done`), Vite SSR config injection, default-secret warning, stale `trapDir` cleanup, and recursive `sitemap*.xml` patching. |
 
 ---
 

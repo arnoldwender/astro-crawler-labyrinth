@@ -4,14 +4,24 @@ export { buildBaitLinks } from './bait.js';
 export {
   DEFAULT_ROUTE_PREFIX,
   DEFAULT_SECRET,
+  formatTrapPath,
   getActiveIntegrationConfig,
   isTrainingOnlyUserAgent,
+  normalizeBasePath,
   resolveConfig,
   sanitizeRoutePrefix,
   sanitizeSeed,
+  sanitizeTrailingSlash,
   setActiveIntegrationConfig,
 } from './config.js';
-export { hashClientIp, hmacSha256Hex, signTrapToken, timingSafeEqualHex, verifyTrapToken } from './crypto.js';
+export {
+  hashClientIp,
+  hmacSha256Hex,
+  normalizeClientIp,
+  signTrapToken,
+  timingSafeEqualHex,
+  verifyTrapToken,
+} from './crypto.js';
 export { createEdgeLabyrinthHandler } from './edge.js';
 export type { EdgeLabyrinthHandler } from './edge.js';
 export { createLabyrinthEndpoint } from './endpoint.js';
@@ -29,6 +39,7 @@ export type {
   LabyrinthOptions,
   ResolvedLabyrinthConfig,
   ResponseFormat,
+  TrailingSlashMode,
   TrapMode,
   TrapViolationEvent,
 } from './types.js';

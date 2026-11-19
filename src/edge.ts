@@ -1,5 +1,5 @@
-import { getActiveIntegrationConfig, isTrainingOnlyUserAgent, resolveConfig } from './config.js';
-import { hashClientIp, hmacSha256Hex, verifyTrapToken } from './crypto.js';
+import { getActiveIntegrationConfig, isTrainingOnlyUserAgent, normalizeBasePath, resolveConfig } from './config.js';
+import { hashClientIp, hmacSha256Hex, normalizeClientIp, verifyTrapToken } from './crypto.js';
 import { generateDecoyDocument } from './generator.js';
 import { QuarantineStore } from './quarantine.js';
 import type { EdgeLabyrinthOptions, TrapViolationEvent } from './types.js';
@@ -19,6 +19,47 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function safeDecodePath(rawPath: string): string {
+  let current = rawPath;
+  for (let i = 0; i < 2; i++) {
+    try {
+      const next = decodeURIComponent(current);
+      if (next === current) {
+        break;
+      }
+      current = next;
+    } catch {
+      break;
+    }
+  }
+  return current.replace(/\/{2,}/g, '/') || '/';
+}
+
+function isExcludedPath(lowerPath: string, excludedPrefixes: readonly string[]): boolean {
+  for (const excluded of excludedPrefixes) {
+    const norm = excluded.trim().toLowerCase().replace(/\/+$/, '');
+    if (!norm) {
+      continue;
+    }
+    if (norm === '/sitemap') {
+      if (lowerPath === '/sitemap' || lowerPath.startsWith('/sitemap/') || /^\/sitemap[^/]*\.xml$/i.test(lowerPath)) {
+        return true;
+      }
+      continue;
+    }
+    if (norm === '/favicon') {
+      if (lowerPath === '/favicon' || lowerPath.startsWith('/favicon/') || lowerPath.startsWith('/favicon.')) {
+        return true;
+      }
+      continue;
+    }
+    if (lowerPath === norm || lowerPath.startsWith(`${norm}/`)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function buildSecurityHeaders(contentType: string, retryAfterSeconds?: number): Headers {
   const headers = new Headers({
     'Content-Type': contentType,
@@ -32,36 +73,53 @@ function buildSecurityHeaders(contentType: string, retryAfterSeconds?: number): 
   return headers;
 }
 
-function buildBlockResponse(status: 429 | 403, retryAfterSeconds: number): Response {
+function buildBlockResponse(status: 429 | 403, retryAfterSeconds: number, isHead: boolean): Response {
   const message =
     status === 429
       ? 'HTTP 429 Too Many Requests: Automated traversal of disallowed robots.txt routes is rate-limited.'
       : 'HTTP 403 Forbidden: Automated traversal of disallowed robots.txt routes is prohibited.';
 
-  return new Response(`${message}\n`, {
+  return new Response(isHead ? null : `${message}\n`, {
     status,
     headers: buildSecurityHeaders('text/plain; charset=utf-8', status === 429 ? retryAfterSeconds : undefined),
   });
 }
 
-function extractClientIp(request: Request, explicitIp?: string): string {
-  if (explicitIp && explicitIp.trim().length > 0) {
-    return explicitIp.trim();
+function extractClientIp(request: Request, explicitIp: string | undefined, trustProxyHeaders: boolean): string | null {
+  if (explicitIp) {
+    const normalized = normalizeClientIp(explicitIp);
+    if (normalized.length > 0) {
+      return normalized;
+    }
+  }
+  if (!trustProxyHeaders) {
+    return null;
   }
   const cfIp = request.headers.get('cf-connecting-ip');
-  if (cfIp && cfIp.trim().length > 0) {
-    return cfIp.trim();
+  if (cfIp) {
+    const normalized = normalizeClientIp(cfIp);
+    if (normalized.length > 0) {
+      return normalized;
+    }
   }
   const nfIp = request.headers.get('x-nf-client-connection-ip');
-  if (nfIp && nfIp.trim().length > 0) {
-    return nfIp.trim();
+  if (nfIp) {
+    const normalized = normalizeClientIp(nfIp);
+    if (normalized.length > 0) {
+      return normalized;
+    }
   }
   const xff = request.headers.get('x-forwarded-for');
-  if (xff && xff.trim().length > 0) {
-    const first = xff.split(',')[0]?.trim();
-    if (first) return first;
+  if (xff) {
+    const first = xff.split(',')[0];
+    if (first) {
+      const normalized = normalizeClientIp(first);
+      if (normalized.length > 0) {
+        return normalized;
+      }
+    }
   }
-  return '0.0.0.0';
+  return null;
 }
 
 export type EdgeLabyrinthHandler = (request: Request, clientIp?: string) => Promise<Response | null>;
@@ -74,40 +132,78 @@ export function createEdgeLabyrinthHandler(options?: EdgeLabyrinthOptions): Edge
   const base = options ? resolveConfig(options) : (getActiveIntegrationConfig() ?? resolveConfig());
   const excludedPrefixes = options?.excludedPrefixes ?? DEFAULT_EXCLUDED_PREFIXES;
   const store = new QuarantineStore();
-  const trapRegex = new RegExp(`^\\/${escapeRegex(base.routePrefix)}(?:\\/([a-zA-Z0-9_-]{1,96}))?\\/?$`);
+  const basePrefix = normalizeBasePath(base.basePath);
+  const trapRegex = new RegExp(
+    `^${escapeRegex(basePrefix)}\\/${escapeRegex(base.routePrefix)}(?:\\/([a-zA-Z0-9_-]{1,96}))?\\/?$`,
+    'i',
+  );
+  let warnedDefaultSecret = false;
 
   return async (request: Request, clientIp?: string): Promise<Response | null> => {
-    const url = new URL(request.url);
-    const pathname = url.pathname || '/';
-    const lowerPath = pathname.toLowerCase();
+    if (base.usesDefaultSecret && !warnedDefaultSecret) {
+      warnedDefaultSecret = true;
+      console.warn(
+        '[astro-crawler-labyrinth] Default fallback secret is active; set a unique >=16-char `secret` before production deployment.',
+      );
+    }
 
-    for (const excluded of excludedPrefixes) {
-      if (lowerPath.startsWith(excluded.toLowerCase())) {
+    let url: URL;
+    try {
+      url = new URL(request.url, 'http://localhost');
+    } catch {
+      return null;
+    }
+
+    const pathname = safeDecodePath(url.pathname || '/');
+    const lowerPath = pathname.toLowerCase();
+    const isHead = (request.method ?? 'GET').toUpperCase() === 'HEAD';
+
+    // Match explicit trap route before prefix exclusions so valid prefixes like `apis` or `sitemaps` are never shadowed.
+    const trapMatch = trapRegex.exec(pathname);
+    if (!trapMatch) {
+      const relLower =
+        basePrefix && (lowerPath === basePrefix.toLowerCase() || lowerPath.startsWith(`${basePrefix.toLowerCase()}/`))
+          ? lowerPath.slice(basePrefix.length) || '/'
+          : lowerPath;
+      if (isExcludedPath(lowerPath, excludedPrefixes) || isExcludedPath(relLower, excludedPrefixes)) {
         return null;
       }
     }
 
     const userAgent = request.headers.get('user-agent') ?? '';
-    const rawIp = extractClientIp(request, clientIp);
-    const ipDigest = await hashClientIp(rawIp, base.secret);
+    const extractedIp = extractClientIp(request, clientIp, base.trustProxyHeaders);
+    const hasIdentifiableIp = extractedIp !== null;
+    const ipDigest = await hashClientIp(extractedIp ?? '0.0.0.0', base.secret);
 
-    const existing = store.isQuarantined(ipDigest);
-    if (existing.quarantined) {
-      return buildBlockResponse(base.blockStatus, existing.retryAfterSeconds);
+    if (hasIdentifiableIp) {
+      const existing = store.isQuarantined(ipDigest);
+      if (existing.quarantined) {
+        return buildBlockResponse(base.blockStatus, existing.retryAfterSeconds, isHead);
+      }
     }
 
-    const trapMatch = trapRegex.exec(pathname);
     const uaMatched = !trapMatch && base.interceptTrainingBots && isTrainingOnlyUserAgent(userAgent);
     if (!trapMatch && !uaMatched) {
       return null;
     }
 
     const rawToken = trapMatch ? (trapMatch[1] ?? '') : 'ua-guard';
-    const outcome = store.recordHit(ipDigest, base.mode, base.strikeThreshold, base.blockTtlMs);
+    const outcome = hasIdentifiableIp
+      ? store.recordHit(ipDigest, base.mode, base.strikeThreshold, base.blockTtlMs)
+      : {
+          quarantined: base.mode === 'block',
+          retryAfterSeconds: Math.max(60, Math.ceil(base.blockTtlMs / 1000)),
+          strikes: 1,
+        };
 
     const notify = async (event: TrapViolationEvent): Promise<void> => {
-      if (base.onViolation) {
+      if (!base.onViolation) {
+        return;
+      }
+      try {
         await base.onViolation(event);
+      } catch {
+        // Telemetry hooks must never abort request handling.
       }
     };
 
@@ -121,10 +217,11 @@ export function createEdgeLabyrinthHandler(options?: EdgeLabyrinthOptions): Edge
         strikes: outcome.strikes,
         status: base.blockStatus,
       });
-      return buildBlockResponse(base.blockStatus, outcome.retryAfterSeconds);
+      return buildBlockResponse(base.blockStatus, outcome.retryAfterSeconds, isHead);
     }
 
-    const parsed = rawToken ? await verifyTrapToken(rawToken, base.secret) : null;
+    const verified = rawToken ? await verifyTrapToken(rawToken, base.secret) : null;
+    const parsed = verified && verified.depth <= base.maxDepth ? verified : null;
     const depth = parsed ? parsed.depth : 1;
     const seed = parsed
       ? parsed.seed
@@ -135,6 +232,8 @@ export function createEdgeLabyrinthHandler(options?: EdgeLabyrinthOptions): Edge
       seed,
       secret: base.secret,
       routePrefix: base.routePrefix,
+      basePath: base.basePath,
+      trailingSlash: base.trailingSlash,
       format: base.format,
       maxDepth: base.maxDepth,
       linksPerPage: 3,
@@ -150,7 +249,7 @@ export function createEdgeLabyrinthHandler(options?: EdgeLabyrinthOptions): Edge
       status: 200,
     });
 
-    return new Response(decoy.body, {
+    return new Response(isHead ? null : decoy.body, {
       status: 200,
       headers: buildSecurityHeaders(decoy.contentType),
     });

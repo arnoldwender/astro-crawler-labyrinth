@@ -1,7 +1,8 @@
-import { sanitizeRoutePrefix } from './config.js';
+import { normalizeBasePath, sanitizeRoutePrefix } from './config.js';
 
 export interface PatchRobotsOptions {
   readonly contentSignal?: boolean;
+  readonly basePath?: string;
 }
 
 function insertBeforeTrailingBlanks(lines: string[], additions: readonly string[]): string[] {
@@ -18,6 +19,15 @@ function insertBeforeTrailingBlanks(lines: string[], additions: readonly string[
   return lines;
 }
 
+function stripInlineComment(line: string): string {
+  const hashIdx = line.indexOf('#');
+  return (hashIdx === -1 ? line : line.slice(0, hashIdx)).trim();
+}
+
+function normalizeRuleCompare(directive: string): string {
+  return directive.replace(/\s*:\s*/, ':').toLowerCase();
+}
+
 /**
  * Injects `Disallow: /<prefix>/` into every RFC 9309 User-agent group so named
  * Allow: / blocks (such as OAI-SearchBot or PerplexityBot) cannot shadow the rule.
@@ -28,8 +38,11 @@ export function patchRobotsTxt(
   options: PatchRobotsOptions = {},
 ): string {
   const cleanPrefix = sanitizeRoutePrefix(routePrefix);
-  const rule = `Disallow: /${cleanPrefix}/`;
+  const basePath = normalizeBasePath(options.basePath);
+  const rule = `Disallow: ${basePath}/${cleanPrefix}/`;
+  const ruleNormalized = normalizeRuleCompare(rule);
   const signalLine = 'Content-Signal: search=yes, ai-train=no';
+  const eol = existingContent.includes('\r\n') ? '\r\n' : '\n';
   const normalized = existingContent.replace(/\r\n?/g, '\n');
   const trimmedAll = normalized.trim();
 
@@ -38,7 +51,7 @@ export function patchRobotsTxt(
     if (options.contentSignal) {
       starter.push(signalLine);
     }
-    return `${starter.join('\n')}\n`;
+    return `${starter.join(eol)}${eol}`;
   }
 
   const lines = normalized.replace(/\n+$/, '').split('\n');
@@ -61,18 +74,23 @@ export function patchRobotsTxt(
     if (additions.length > 0) {
       result = insertBeforeTrailingBlanks(result, additions);
     }
+    inGroup = false;
+    hasNonUaDirective = false;
+    groupHasDisallow = false;
+    groupIsStar = false;
+    groupHasSignal = false;
   };
 
   for (const line of lines) {
     const trimmed = line.trim();
-    const uaMatch = /^user-agent\s*:\s*(.+)$/i.exec(trimmed);
-    const isMeta = trimmed === '' || trimmed.startsWith('#') || /^sitemap\s*:/i.test(trimmed);
+    const directive = stripInlineComment(line);
+    const uaMatch = /^user-agent\s*:\s*(.+)$/i.exec(directive);
+    const isSitemap = /^sitemap\s*:/i.test(directive);
 
     if (uaMatch) {
       foundAnyUa = true;
       if (inGroup && hasNonUaDirective) {
         flushGroup();
-        inGroup = false;
       }
       if (!inGroup) {
         inGroup = true;
@@ -88,21 +106,21 @@ export function patchRobotsTxt(
       continue;
     }
 
-    if (inGroup && !isMeta) {
+    // Per RFC 9309, a blank line or Sitemap directive terminates an open User-agent group.
+    if (inGroup && (trimmed === '' || isSitemap)) {
+      flushGroup();
+      result.push(line);
+      continue;
+    }
+
+    if (inGroup && directive !== '') {
       hasNonUaDirective = true;
-      if (trimmed.toLowerCase() === rule.toLowerCase()) {
+      if (normalizeRuleCompare(directive) === ruleNormalized) {
         groupHasDisallow = true;
       }
-      if (/^content-signal\s*:/i.test(trimmed)) {
+      if (/^content-signal\s*:/i.test(directive)) {
         groupHasSignal = true;
       }
-    } else if (inGroup && trimmed === '' && hasNonUaDirective) {
-      flushGroup();
-      inGroup = false;
-      hasNonUaDirective = false;
-      groupHasDisallow = false;
-      groupIsStar = false;
-      groupHasSignal = false;
     }
 
     result.push(line);
@@ -119,19 +137,37 @@ export function patchRobotsTxt(
     }
   }
 
-  return `${result.join('\n')}\n`;
+  return `${result.join(eol)}${eol}`;
 }
 
 /**
- * Strips any `<url>...</url>` entry referencing `/<prefix>/` from sitemap XML files
- * so disallowed honeypot routes never appear in search engine sitemaps.
+ * Strips any `<url>...</url>` entry whose `<loc>` pathname targets `<basePath>/<prefix>(/...)`
+ * from sitemap XML files so disallowed honeypot routes never appear in search sitemaps.
  */
-export function stripTrapFromSitemapXml(xml: string, routePrefix: string): string {
+export function stripTrapFromSitemapXml(xml: string, routePrefix: string, basePath = ''): string {
   const cleanPrefix = sanitizeRoutePrefix(routePrefix);
-  const escaped = cleanPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const urlBlockRegex = new RegExp(
-    `\\s*<url>\\s*<loc>[^<]*\\/${escaped}(?:\\/[^<]*)?<\\/loc>[\\s\\S]*?<\\/url>`,
-    'gi',
-  );
-  return xml.replace(urlBlockRegex, '');
+  const cleanBase = normalizeBasePath(basePath);
+  const trapPath = `${cleanBase}/${cleanPrefix}`.toLowerCase();
+
+  return xml.replace(/[ \t]*<url\b[^>]*>[\s\S]*?<\/url>[ \t]*\r?\n?/gi, (block) => {
+    const locMatch = /<loc>\s*([^<\s]+)\s*<\/loc>/i.exec(block);
+    if (!locMatch || !locMatch[1]) {
+      return block;
+    }
+    let pathname = locMatch[1].trim();
+    try {
+      pathname = new URL(pathname, 'https://sitemap.invalid').pathname;
+    } catch {
+      const schemeIdx = pathname.indexOf('://');
+      if (schemeIdx !== -1) {
+        const pathStart = pathname.indexOf('/', schemeIdx + 3);
+        pathname = pathStart === -1 ? '/' : pathname.slice(pathStart);
+      }
+    }
+    const lowerPath = pathname.toLowerCase();
+    if (lowerPath === trapPath || lowerPath.startsWith(`${trapPath}/`)) {
+      return '';
+    }
+    return block;
+  });
 }
