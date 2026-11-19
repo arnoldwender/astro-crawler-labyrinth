@@ -1,10 +1,29 @@
-# Astro Crawler Labyrinth
+<p align="center">
+  <img src="docs/images/banner.jpg" alt="Astro Crawler Labyrinth — Deterministic Static Ring and Edge Tarpit for Astro" />
+</p>
 
-[![CI](https://github.com/arnoldwender/astro-crawler-labyrinth/actions/workflows/ci.yml/badge.svg)](https://github.com/arnoldwender/astro-crawler-labyrinth/actions/workflows/ci.yml)
+<h1 align="center">Astro Crawler Labyrinth</h1>
 
-**Local deterministic crawler honeypot integration, accessible-inert `<CrawlerTrap />` component, and Web-standard Edge/SSR quarantine handler for Astro.**
+<p align="center">
+  <strong>Local deterministic crawler honeypot integration, accessible-inert <code>&lt;CrawlerTrap /&gt;</code> component, and Web-standard Edge/SSR quarantine handler for Astro.</strong>
+</p>
 
-Built by [Arnold Wender](https://arnoldwender.com).
+<p align="center">
+  <a href="https://github.com/arnoldwender/astro-crawler-labyrinth/actions/workflows/ci.yml"><img src="https://github.com/arnoldwender/astro-crawler-labyrinth/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-f59e0b.svg" alt="License: MIT" /></a>
+  <img src="https://img.shields.io/badge/Node-%3E%3D20.0.0-3fb950.svg" alt="Node >= 20.0.0" />
+  <img src="https://img.shields.io/badge/Astro-7.x%20(peer%20%3E%3D5)-ff5d01.svg" alt="Astro 7.x peer >=5" />
+  <img src="https://img.shields.io/badge/TypeScript-strict-3178c6.svg" alt="TypeScript strict" />
+</p>
+
+| Field | Value |
+| --- | --- |
+| **Author** | [Arnold Wender](https://arnoldwender.com) |
+| **Repository** | [github.com/arnoldwender/astro-crawler-labyrinth](https://github.com/arnoldwender/astro-crawler-labyrinth) |
+| **Companion WordPress Plugin** | [arnoldwender/crawler-labyrinth](https://github.com/arnoldwender/crawler-labyrinth) |
+| **Runtime & Peer Support** | Node.js `>= 20.0.0` · Astro `^5 \|\| ^6 \|\| ^7` · WebCrypto & Fetch Standard |
+| **License** | [MIT License](LICENSE) |
+| **Verification** | `npm run typecheck && npm run build && npm test && npm pack --dry-run` |
 
 ---
 
@@ -82,6 +101,10 @@ At build time (`astro:build:done`), `astro-crawler-labyrinth`:
 ---
 
 ## Architecture & Usage Modes
+
+<p align="center">
+  <img src="docs/images/architecture-flow.svg" alt="Astro Crawler Labyrinth SSG and Edge/SSR quarantine architecture diagram" />
+</p>
 
 ### Static SSG Mode (Default)
 
@@ -163,6 +186,16 @@ When `interceptTrainingBots` is enabled—or when checking `isTrainingOnlyUserAg
 - **Trapped opt-in training/scraper tokens:** `GPTBot`, `CCBot`, `ClaudeBot`, `anthropic-ai`, `Bytespider`, `PetalBot`, `Diffbot`, `Omgilibot`, `ImagesiftBot`, `DataForSeoBot`, `Scrapy`.
 
 Any crawler—regardless of User-Agent—that intentionally ignores `Disallow: /<routePrefix>/` in `robots.txt` and follows the inert trap link enters the labyrinth.
+
+---
+
+## Generated Decoy Output
+
+Each emitted route (such as `Cataloguing Annex 3902-2116 (Section 1)` below) renders deterministic semantic archival HTML with `Folio` records, `noindex, nofollow, noarchive, nosnippet, noai, noimageai` directives, zero `<script>` tags, and bounded `Cross-Reference Entry` links back into the trap ring:
+
+<p align="center">
+  <img src="docs/images/decoy-folio-preview.png" alt="Rendered browser preview of a generated static archival decoy page" />
+</p>
 
 ---
 
