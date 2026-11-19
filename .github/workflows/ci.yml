@@ -39,5 +39,8 @@ jobs:
       - name: Run unit and Astro E2E tests
         run: npm test
 
+      - name: Run adversarial mutation gate
+        run: npm run test:mutations
+
       - name: Verify tarball contents
         run: npm pack --dry-run

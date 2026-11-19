@@ -1,4 +1,12 @@
-import { getActiveIntegrationConfig, sanitizeRoutePrefix, sanitizeSeed, DEFAULT_SECRET } from './config.js';
+import {
+  DEFAULT_SECRET,
+  formatTrapPath,
+  getActiveIntegrationConfig,
+  normalizeBasePath,
+  sanitizeRoutePrefix,
+  sanitizeSeed,
+  sanitizeTrailingSlash,
+} from './config.js';
 import { hmacSha256Hex, signTrapToken } from './crypto.js';
 import type { BaitLink, CrawlerTrapProps } from './types.js';
 
@@ -9,8 +17,13 @@ import type { BaitLink, CrawlerTrapProps } from './types.js';
 export async function buildBaitLinks(props: CrawlerTrapProps = {}): Promise<readonly BaitLink[]> {
   const active = getActiveIntegrationConfig();
   const routePrefix = sanitizeRoutePrefix(props.routePrefix ?? active?.routePrefix);
-  const countRaw = props.count ?? active?.linkCount ?? 1;
-  const count = Math.max(1, Math.min(5, Math.trunc(countRaw)));
+  const basePath = normalizeBasePath(props.basePath ?? active?.basePath);
+  const trailingSlash = sanitizeTrailingSlash(props.trailingSlash ?? active?.trailingSlash);
+
+  const rawCount = props.count ?? active?.linkCount ?? 1;
+  const finiteCount = typeof rawCount === 'number' && Number.isFinite(rawCount) ? Math.trunc(rawCount) : 1;
+  const count = Math.max(1, Math.min(5, finiteCount));
+
   const seedBase = sanitizeSeed(props.seed ?? active?.entrySeed);
   const secret = props.secret && props.secret.length >= 16 ? props.secret : (active?.secret ?? DEFAULT_SECRET);
   const baseLabel = props.label && props.label.trim().length > 0 ? props.label.trim() : 'Archival Reference Index';
@@ -20,7 +33,7 @@ export async function buildBaitLinks(props: CrawlerTrapProps = {}): Promise<read
     const subHash = await hmacSha256Hex(`entry|${seedBase}|${i}`, secret);
     const token = await signTrapToken(1, subHash.slice(0, 12), secret);
     links.push({
-      href: `/${routePrefix}/${token}/`,
+      href: formatTrapPath(basePath, routePrefix, token, trailingSlash),
       label: count === 1 ? baseLabel : `${baseLabel} ${i + 1}`,
       token,
     });

@@ -24,7 +24,7 @@
 | **Runtime & Peer Support** | Node.js `>= 20.0.0` · Astro `^5 \|\| ^6 \|\| ^7` · WebCrypto & Fetch Standard |
 | **License** | [MIT License](LICENSE) |
 | **Support & Liability** | **Zero support** — reproducible bugs on [GitHub Issues](https://github.com/arnoldwender/astro-crawler-labyrinth/issues) only · **no private support** · **AS IS / no liability** ([SUPPORT.md](SUPPORT.md)) |
-| **Verification** | `npm run typecheck && npm run build && npm test && npm pack --dry-run` |
+| **Verification** | `npm run typecheck && npm run build && npm test && npm run test:mutations && npm pack --dry-run` |
 
 ---
 
@@ -34,7 +34,7 @@ Aggressive AI training scrapers routinely ignore `robots.txt` and traverse every
 
 `astro-crawler-labyrinth` keeps the entire defense deterministic, local, and reversible inside your Astro build and Edge/SSR runtime:
 
-1. **Disallowed Entry Bait (`<CrawlerTrap />`):** Renders a native `hidden` + `aria-hidden="true"` anchor pointing at `/${routePrefix}/<signed-token>/` with `tabindex="-1"` and `rel="nofollow noopener"`, keeping keyboard users, screen readers, and normal search indexing untouched.
+1. **Disallowed Entry Bait (`<CrawlerTrap />`):** Renders a native `hidden` + `inert` + `aria-hidden="true"` anchor pointing at `/${routePrefix}/<signed-token>/` with `tabindex="-1"` and `rel="nofollow noopener"`, keeping keyboard users, screen readers, and normal search indexing untouched.
 2. **RFC 9309 Multi-Group `robots.txt` Patching:** Injects `Disallow: /${routePrefix}/` into **every** `User-agent:` group (not only `*`) so bots with dedicated `User-agent:` + `Allow: /` blocks (such as `OAI-SearchBot` or `PerplexityBot`) stay bound by the disallow rule.
 3. **Static Ring & Dynamic Decoy Generation:** Emits a bounded ring of deterministic archival HTML decoy pages during `astro:build:done` (always marked `noindex, nofollow, noarchive, nosnippet, noai, noimageai`) and can additionally serve Web-standard Edge/SSR decoys or strike-based HTTP `429`/`403` quarantines with `Retry-After`.
 4. **Zero-Network & Privacy-Safe:** No external SaaS APIs, no AI calls, and no raw client IP storage—strike tracking uses daily rotating keyed SHA-256 HMAC digests (`hashClientIp`).
@@ -95,9 +95,9 @@ import CrawlerTrap from 'astro-crawler-labyrinth/components/CrawlerTrap.astro';
 
 At build time (`astro:build:done`), `astro-crawler-labyrinth`:
 
-- emits deterministic depth-1..`maxDepth` decoy HTML pages under `dist/${routePrefix}/<token>/index.html` matching `<CrawlerTrap />`,
+- emits deterministic depth-1..`maxDepth` decoy HTML pages under `dist/${routePrefix}/<token>/index.html` matching `<CrawlerTrap />` (skipped when `enableSsrEndpoint: true` so CDN static assets never shadow dynamic SSR quarantine/strike tracking),
 - patches `dist/robots.txt` with `Disallow: /${routePrefix}/` across every `User-agent:` group (creating a minimal `robots.txt` if none exists),
-- strips any matching `/${routePrefix}/...` entries from top-level `dist/sitemap*.xml` files.
+- strips any matching `/${routePrefix}/...` entries recursively from `dist/sitemap*.xml` files (when using `@astrojs/sitemap`, list `crawlerLabyrinth()` **after** `sitemap()` in `integrations` so `astro:build:done` runs after the sitemap is generated).
 
 ---
 
@@ -173,7 +173,10 @@ export default async (request: Request, context: { next: () => Promise<Response>
 | `contentSignal` | `boolean` | `false` | Appends `Content-Signal: search=yes, ai-train=no` to `User-agent: *` when patching `robots.txt`. |
 | `interceptTrainingBots` | `boolean` | `false` | Opt-in UA check for Edge/SSR mode (`GPTBot`, `CCBot`, `ClaudeBot`, `Bytespider`, `Scrapy`, etc.), strictly sparing search/citation bots first. |
 | `enableSsrEndpoint` | `boolean` | `false` | Injects `/${routePrefix}/[...slug]` endpoint + `pre` middleware during `astro:config:setup`. |
-| `stripFromSitemap` | `boolean` | `true` | Removes matching `/<routePrefix>/` `<url>` blocks from top-level `dist/sitemap*.xml`. |
+| `stripFromSitemap` | `boolean` | `true` | Recursively removes matching `/<routePrefix>/` `<url>` blocks from `dist/sitemap*.xml` (list `crawlerLabyrinth()` after `@astrojs/sitemap()`). |
+| `basePath` | `string` | `''` (auto from Astro `base`) | Subpath mount prefix (e.g. `'/docs'`) propagated automatically from `astro.config` `base`. |
+| `trailingSlash` | `'always' \| 'never' \| 'ignore'` | `'always'` (auto from Astro `trailingSlash`) | Controls trailing slashes on emitted `<CrawlerTrap />` and decoy links; synced from `astro.config`. (`robots.txt` always emits `Disallow: <basePath>/<prefix>/`.) |
+| `trustProxyHeaders` | `boolean` | `false` | Opt-in to read `CF-Connecting-IP` / `X-Nf-Client-Connection-Ip` / `X-Real-IP` / `X-Forwarded-For` when no explicit platform IP is passed; leave `false` unless behind a trusted reverse proxy that strips client-supplied headers. |
 | `entrySeed` | `string` | `'archroot0001'` | Sanitized alphanumeric seed (`4..24` chars) for deterministic bait tokens. |
 | `onViolation` | `(event: TrapViolationEvent) => void \| Promise<void>` | `undefined` | Optional telemetry hook invoked with masked `ipDigest` and violation metadata. |
 
@@ -207,6 +210,7 @@ npm install
 npm run typecheck
 npm run build
 npm test
+npm run test:mutations
 ```
 
 - [Architecture Guide](docs/ARCHITECTURE.md) — module boundaries, HMAC token grammar, RFC 9309 state machine, and Edge/SSG data flow.

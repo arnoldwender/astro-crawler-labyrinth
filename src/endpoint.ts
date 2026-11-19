@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro';
 import { createEdgeLabyrinthHandler } from './edge.js';
 import type { EdgeLabyrinthOptions } from './types.js';
 
+export const prerender = false;
+
 export function createLabyrinthEndpoint(options?: EdgeLabyrinthOptions): APIRoute {
   const handler = createEdgeLabyrinthHandler(options);
 
@@ -18,7 +20,8 @@ export function createLabyrinthEndpoint(options?: EdgeLabyrinthOptions): APIRout
       return response;
     }
 
-    return new Response('Not Found', {
+    const isHead = (context.request.method ?? 'GET').toUpperCase() === 'HEAD';
+    return new Response(isHead ? null : 'Not Found', {
       status: 404,
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
@@ -29,3 +32,4 @@ export function createLabyrinthEndpoint(options?: EdgeLabyrinthOptions): APIRout
 }
 
 export const GET: APIRoute = createLabyrinthEndpoint();
+export const HEAD: APIRoute = GET;

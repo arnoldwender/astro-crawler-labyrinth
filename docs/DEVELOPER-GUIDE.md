@@ -27,6 +27,7 @@ npm install
 | `npm run typecheck` | Run strict TypeScript checking (`tsc --noEmit`). |
 | `npm run build` | Compile `src/*.ts` to ES modules + `.d.ts` declarations in `dist/`. |
 | `npm test` | Run the full Vitest suite (`test/labyrinth.test.ts`), including an end-to-end Astro CLI build. |
+| `npm run test:mutations` | Run source-level mutation checks (`scripts/run-mutations.mjs`) and confirm every mutant fails tests or typecheck. |
 | `npm pack --dry-run` | Verify exact files included in the distributable npm tarball (`files` allowlist). |
 
 > **Important:** Because `components/CrawlerTrap.astro` imports from `../dist/bait.js` and `../dist/types.js`, always run `npm run build` before `npm test` after modifying files in `src/`.
@@ -78,7 +79,7 @@ When writing Edge Workers (Cloudflare Workers, Netlify Edge Functions, Deno Depl
 
 ## Release Checklist
 
-1. Ensure `npm run typecheck`, `npm run build`, and `npm test` pass cleanly on Linux/macOS Node 22.
+1. Ensure `npm run typecheck`, `npm run build`, `npm test`, and `npm run test:mutations` pass cleanly on Linux/macOS Node 20/22.
 2. Inspect `npm pack --dry-run` to confirm only `dist/`, `components/`, `README.md`, `CHANGELOG.md`, and `LICENSE` ship in the tarball.
 3. Update `CHANGELOG.md` and `package.json` `"version"` following SemVer.
 4. Open a pull request targeting `main` and confirm GitHub Actions CI (`CI / Typecheck, Build, Test & Pack`) passes cleanly.

@@ -9,7 +9,8 @@ export class QuarantineStore {
   private readonly maxEntries: number;
 
   constructor(maxEntries = 4096) {
-    this.maxEntries = Math.max(64, Math.trunc(maxEntries));
+    const safeMax = Number.isFinite(maxEntries) ? Math.trunc(maxEntries) : 4096;
+    this.maxEntries = Math.max(64, safeMax);
   }
 
   isQuarantined(ipDigest: string, nowMs = Date.now()): { quarantined: boolean; retryAfterSeconds: number; strikes: number } {
@@ -73,6 +74,17 @@ export class QuarantineStore {
     for (const [key, value] of this.entries) {
       if (value.expiresAt <= nowMs) {
         this.entries.delete(key);
+      }
+    }
+    // Prefer evicting unquarantined entries so spoofed/low-strike floods cannot displace active bans.
+    if (this.entries.size >= this.maxEntries) {
+      for (const [key, value] of this.entries) {
+        if (this.entries.size < this.maxEntries) {
+          break;
+        }
+        if (value.quarantinedUntil <= nowMs) {
+          this.entries.delete(key);
+        }
       }
     }
     while (this.entries.size >= this.maxEntries) {

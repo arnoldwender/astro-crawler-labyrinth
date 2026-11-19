@@ -1,4 +1,11 @@
-import type { LabyrinthOptions, ResolvedLabyrinthConfig, ResponseFormat, TrapMode } from './types.js';
+import { INJECTED_CONFIG } from './runtime-config.js';
+import type {
+  LabyrinthOptions,
+  ResolvedLabyrinthConfig,
+  ResponseFormat,
+  TrailingSlashMode,
+  TrapMode,
+} from './types.js';
 
 export const DEFAULT_ROUTE_PREFIX = 'crawler-trap';
 export const DEFAULT_SECRET = 'astro-crawler-labyrinth-default-seed-v1';
@@ -56,30 +63,72 @@ export function setActiveIntegrationConfig(config: ResolvedLabyrinthConfig): voi
 }
 
 export function getActiveIntegrationConfig(): ResolvedLabyrinthConfig | null {
-  return (globalThis as GlobalWithConfig)[GLOBAL_CONFIG_SYMBOL] ?? null;
+  const fromGlobal = (globalThis as GlobalWithConfig)[GLOBAL_CONFIG_SYMBOL];
+  if (fromGlobal) {
+    return fromGlobal;
+  }
+  if (INJECTED_CONFIG) {
+    return resolveConfig(INJECTED_CONFIG);
+  }
+  return null;
+}
+
+export function normalizeBasePath(raw: string | undefined): string {
+  if (!raw) {
+    return '';
+  }
+  const trimmed = raw.trim().replace(/\/{2,}/g, '/').replace(/^\/+|\/+$/g, '');
+  if (trimmed === '') {
+    return '';
+  }
+  return `/${trimmed}`;
+}
+
+export function sanitizeTrailingSlash(raw: TrailingSlashMode | undefined): TrailingSlashMode {
+  return raw === 'never' || raw === 'ignore' ? raw : 'always';
+}
+
+export function formatTrapPath(
+  basePath: string,
+  routePrefix: string,
+  token?: string,
+  trailingSlash: TrailingSlashMode = 'always',
+): string {
+  const base = normalizeBasePath(basePath);
+  const prefix = sanitizeRoutePrefix(routePrefix);
+  const suffix = trailingSlash === 'never' ? '' : '/';
+  if (token && token.length > 0) {
+    return `${base}/${prefix}/${encodeURIComponent(token)}${suffix}`;
+  }
+  return `${base}/${prefix}${suffix}`;
 }
 
 export function sanitizeRoutePrefix(raw: string | undefined): string {
   if (!raw) {
     return DEFAULT_ROUTE_PREFIX;
   }
-  const clean = raw
-    .trim()
-    .replace(/^\/+|\/+$/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9_.-]/g, '')
-    .replace(/^-+|-+$/g, '');
-
-  const primary = (clean.split('.')[0] ?? '').replace(/[^a-z0-9_-]/g, '');
-  if (primary.length < 3 || primary.length > 32 || clean.includes('.')) {
+  const stripped = raw.trim().replace(/^\/+|\/+$/g, '').toLowerCase();
+  if (stripped.includes('.') || stripped.includes('/')) {
+    return DEFAULT_ROUTE_PREFIX;
+  }
+  const baseClean = stripped.replace(/[^a-z0-9_-]/g, '').replace(/^-+|-+$/g, '');
+  const clean = baseClean.replace(/^[-_]+|[-_]+$/g, '');
+  if (clean.length < 3 || clean.length > 32) {
     return DEFAULT_ROUTE_PREFIX;
   }
   for (const reserved of RESERVED_PREFIXES) {
-    if (primary === reserved || primary.startsWith(`${reserved}-`) || primary.startsWith(`.${reserved}`)) {
+    if (
+      baseClean === reserved ||
+      baseClean.startsWith(`${reserved}-`) ||
+      baseClean.startsWith(`${reserved}_`) ||
+      clean === reserved ||
+      clean.startsWith(`${reserved}-`) ||
+      clean.startsWith(`${reserved}_`)
+    ) {
       return DEFAULT_ROUTE_PREFIX;
     }
   }
-  return primary;
+  return clean;
 }
 
 function sanitizeMode(raw: TrapMode | undefined): TrapMode {
@@ -103,6 +152,7 @@ function clampInt(val: number | undefined, min: number, max: number, fallback: n
 export function sanitizeSeed(raw: string | undefined, fallback = 'archroot0001'): string {
   if (!raw) return fallback;
   const clean = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (clean.length === 0) return fallback;
   if (clean.length < 4) {
     return `${clean}arch0001`.slice(0, 12);
   }
@@ -110,11 +160,16 @@ export function sanitizeSeed(raw: string | undefined, fallback = 'archroot0001')
 }
 
 export function resolveConfig(options: LabyrinthOptions = {}): ResolvedLabyrinthConfig {
+  const hasStrongSecret = typeof options.secret === 'string' && options.secret.length >= 16;
+  const secret = hasStrongSecret ? options.secret! : DEFAULT_SECRET;
   return {
     routePrefix: sanitizeRoutePrefix(options.routePrefix),
+    basePath: normalizeBasePath(options.basePath),
+    trailingSlash: sanitizeTrailingSlash(options.trailingSlash),
     mode: sanitizeMode(options.mode),
     format: sanitizeFormat(options.format),
-    secret: options.secret && options.secret.length >= 16 ? options.secret : DEFAULT_SECRET,
+    secret,
+    usesDefaultSecret: !hasStrongSecret || secret === DEFAULT_SECRET,
     staticPages: clampInt(options.staticPages, 4, 256, 24),
     maxDepth: clampInt(options.maxDepth, 1, 16, 8),
     linkCount: clampInt(options.linkCount, 1, 5, 1),
@@ -126,6 +181,7 @@ export function resolveConfig(options: LabyrinthOptions = {}): ResolvedLabyrinth
     interceptTrainingBots: options.interceptTrainingBots ?? false,
     enableSsrEndpoint: options.enableSsrEndpoint ?? false,
     stripFromSitemap: options.stripFromSitemap ?? true,
+    trustProxyHeaders: options.trustProxyHeaders ?? false,
     entrySeed: sanitizeSeed(options.entrySeed),
     onViolation: options.onViolation,
   };

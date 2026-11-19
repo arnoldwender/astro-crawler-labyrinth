@@ -6,6 +6,10 @@ export function createLabyrinthMiddleware(options?: EdgeLabyrinthOptions): Middl
   const handler = createEdgeLabyrinthHandler(options);
 
   return async (context, next) => {
+    if ((context as { isPrerendered?: boolean }).isPrerendered) {
+      return next();
+    }
+
     let clientAddress: string | undefined;
     try {
       clientAddress = context.clientAddress;

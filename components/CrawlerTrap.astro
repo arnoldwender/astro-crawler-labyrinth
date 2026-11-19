@@ -1,13 +1,18 @@
 ---
 import { buildBaitLinks } from '../dist/bait.js';
+import { getActiveIntegrationConfig } from '../dist/config.js';
 import type { CrawlerTrapProps } from '../dist/types.js';
 
 export type Props = CrawlerTrapProps;
 
-const links = await buildBaitLinks(Astro.props);
+const active = getActiveIntegrationConfig();
+const fallbackBase =
+  Astro.props.basePath ??
+  (active ? active.basePath : import.meta.env.BASE_URL !== '/' ? import.meta.env.BASE_URL : undefined);
+const links = await buildBaitLinks({ ...Astro.props, basePath: fallbackBase });
 ---
 
-<div hidden aria-hidden="true" data-crawler-labyrinth="1">
+<div hidden inert aria-hidden="true" data-crawler-labyrinth="1">
   {
     links.map((link) => (
       <a href={link.href} rel="nofollow noopener" tabindex="-1" aria-hidden="true">
