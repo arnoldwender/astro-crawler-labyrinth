@@ -2,6 +2,10 @@
 
 `astro-crawler-labyrinth` is a self-contained TypeScript package (no third-party runtime npm `dependencies`) plus an Astro component designed to trap abusive non-compliant crawlers across **Static SSG** (`astro:build:done`), **Astro SSR**, and **Web-standard Edge runtimes** (`Request` / `Response` + WebCrypto).
 
+<p align="center">
+  <img src="images/architecture-flow.svg" alt="Astro Crawler Labyrinth SSG and Edge/SSR pipeline diagram" />
+</p>
+
 ---
 
 ## Module Boundaries
