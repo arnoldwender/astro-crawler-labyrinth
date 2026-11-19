@@ -152,6 +152,7 @@ function clampInt(val: number | undefined, min: number, max: number, fallback: n
 export function sanitizeSeed(raw: string | undefined, fallback = 'archroot0001'): string {
   if (!raw) return fallback;
   const clean = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (clean.length === 0) return fallback;
   if (clean.length < 4) {
     return `${clean}arch0001`.slice(0, 12);
   }

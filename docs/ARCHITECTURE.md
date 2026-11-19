@@ -65,9 +65,9 @@ Incoming Request
 | `src/robots.ts` | RFC 9309 multi-group `robots.txt` injector (`patchRobotsTxt`, handling inline `#` comments, empty groups, and CRLF) and order-independent sitemap `<url>` sanitizer (`stripTrapFromSitemapXml`). |
 | `src/quarantine.ts` | Bounded LRU strike tracker (`QuarantineStore`, default `4096` entries, floor `64`) evicting expired and non-quarantined entries before overflowing active bans. |
 | `src/edge.ts` | Web-standard `createEdgeLabyrinthHandler` with opt-in `trustProxyHeaders` (`cf-connecting-ip`, `x-nf-client-connection-ip`, `x-real-ip`, `x-forwarded-for`), segment-bounded exclusions, and `HEAD` support. |
-| `src/endpoint.ts` | Astro `APIRoute` factory (`createLabyrinthEndpoint`, `export const prerender = false`) + `ALL` handler supporting `GET`/`HEAD` and returning `404` (`noindex, nofollow`) for non-trap misses. |
+| `src/endpoint.ts` | Astro `APIRoute` factory (`createLabyrinthEndpoint`, `export const prerender = false`) + `GET` and `HEAD` handlers returning `404` (`noindex, nofollow`) for non-trap misses. |
 | `src/middleware.ts` | Astro `MiddlewareHandler` factory (`createLabyrinthMiddleware`) skipping prerendered routes (`context.isPrerendered`) and delegating non-matching traffic to `next()`. |
-| `src/integration.ts` | Astro integration lifecycle hooks (`astro:config:setup`, `astro:build:done`), Vite SSR config injection, default-secret warning, stale `trapDir` cleanup, and recursive `sitemap*.xml` patching. |
+| `src/integration.ts` | Astro integration lifecycle hooks (`astro:config:setup`, `astro:build:done`), Vite SSR config injection, default-secret/fallback warnings, static-ring emission (when `enableSsrEndpoint` is `false`), and recursive `sitemap*.xml` patching. |
 
 ---
 

@@ -68,54 +68,57 @@ export async function emitStaticLabyrinth(
   const dirPath = typeof outDir === 'string' ? outDir : fileURLToPath(outDir);
   const trapDir = join(dirPath, config.routePrefix);
   await rm(trapDir, { recursive: true, force: true });
-  await mkdir(trapDir, { recursive: true });
-
-  const baitLinks = await buildBaitLinks({
-    routePrefix: config.routePrefix,
-    basePath: config.basePath,
-    trailingSlash: config.trailingSlash,
-    count: config.linkCount,
-    seed: config.entrySeed,
-    secret: config.secret,
-  });
-
-  const ringTokens: string[] = baitLinks.map((b) => b.token);
-  const totalPages = Math.max(ringTokens.length, config.staticPages);
-
-  for (let idx = ringTokens.length; idx < totalPages; idx++) {
-    const depth = (idx % config.maxDepth) + 1;
-    const nodeHash = await hmacSha256Hex(`ring|${config.entrySeed}|${idx}`, config.secret);
-    const token = await signTrapToken(depth, nodeHash.slice(0, 12), config.secret);
-    ringTokens.push(token);
-  }
 
   let pagesWritten = 0;
-  for (let idx = 0; idx < ringTokens.length; idx++) {
-    const token = ringTokens[idx]!;
-    const parsed = await verifyTrapToken(token, config.secret);
-    const depth = parsed?.depth ?? 1;
-    const seed = parsed?.seed ?? sanitizeSeed(config.entrySeed);
+  if (!config.enableSsrEndpoint) {
+    await mkdir(trapDir, { recursive: true });
 
-    const childA = ringTokens[(idx + 1) % ringTokens.length]!;
-    const childB = ringTokens[(idx + 3) % ringTokens.length]!;
-    const childTokens = childA === childB ? [childA] : [childA, childB];
-
-    const decoy = await generateDecoyDocument({
-      depth,
-      seed,
-      secret: config.secret,
+    const baitLinks = await buildBaitLinks({
       routePrefix: config.routePrefix,
       basePath: config.basePath,
       trailingSlash: config.trailingSlash,
-      format: 'html',
-      maxDepth: config.maxDepth,
-      overrideChildTokens: childTokens,
+      count: config.linkCount,
+      seed: config.entrySeed,
+      secret: config.secret,
     });
 
-    const pageDir = join(trapDir, token);
-    await mkdir(pageDir, { recursive: true });
-    await writeFile(join(pageDir, 'index.html'), decoy.body, 'utf8');
-    pagesWritten++;
+    const ringTokens: string[] = baitLinks.map((b) => b.token);
+    const totalPages = Math.max(ringTokens.length, config.staticPages);
+
+    for (let idx = ringTokens.length; idx < totalPages; idx++) {
+      const depth = (idx % config.maxDepth) + 1;
+      const nodeHash = await hmacSha256Hex(`ring|${config.entrySeed}|${idx}`, config.secret);
+      const token = await signTrapToken(depth, nodeHash.slice(0, 12), config.secret);
+      ringTokens.push(token);
+    }
+
+    for (let idx = 0; idx < ringTokens.length; idx++) {
+      const token = ringTokens[idx]!;
+      const parsed = await verifyTrapToken(token, config.secret);
+      const depth = parsed?.depth ?? 1;
+      const seed = parsed?.seed ?? sanitizeSeed(config.entrySeed);
+
+      const childA = ringTokens[(idx + 1) % ringTokens.length]!;
+      const childB = ringTokens[(idx + 3) % ringTokens.length]!;
+      const childTokens = childA === childB ? [childA] : [childA, childB];
+
+      const decoy = await generateDecoyDocument({
+        depth,
+        seed,
+        secret: config.secret,
+        routePrefix: config.routePrefix,
+        basePath: config.basePath,
+        trailingSlash: config.trailingSlash,
+        format: 'html',
+        maxDepth: config.maxDepth,
+        overrideChildTokens: childTokens,
+      });
+
+      const pageDir = join(trapDir, token);
+      await mkdir(pageDir, { recursive: true });
+      await writeFile(join(pageDir, 'index.html'), decoy.body, 'utf8');
+      pagesWritten++;
+    }
   }
 
   let robotsPatched = false;
@@ -170,6 +173,9 @@ export default function crawlerLabyrinth(options: LabyrinthOptions = {}): AstroI
             'Using built-in DEFAULT_SECRET with SSR enabled; set a unique >=16-char `secret` via environment variable before production deployment.',
           );
         }
+        if (options.routePrefix && activeConfig.routePrefix !== options.routePrefix.trim().replace(/^\/+|\/+$/g, '').toLowerCase()) {
+          logger.warn(`Invalid or reserved routePrefix "${options.routePrefix}" fell back to "${activeConfig.routePrefix}".`);
+        }
 
         const serialized = JSON.stringify(serializeInjectedConfig(activeConfig));
         const vitePlugin = {
@@ -188,7 +194,11 @@ export default function crawlerLabyrinth(options: LabyrinthOptions = {}): AstroI
             if (!_code.includes('INJECTED_CONFIG')) {
               return null;
             }
-            if (transformOptions?.ssr === false || this.environment?.name === 'client') {
+            if (
+              transformOptions?.ssr === false ||
+              this.environment?.name === 'client' ||
+              (!this.environment && transformOptions?.ssr !== true)
+            ) {
               return null;
             }
             return {

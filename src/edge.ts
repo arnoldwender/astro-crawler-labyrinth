@@ -109,6 +109,13 @@ function extractClientIp(request: Request, explicitIp: string | undefined, trust
       return normalized;
     }
   }
+  const realIp = request.headers.get('x-real-ip');
+  if (realIp) {
+    const normalized = normalizeClientIp(realIp);
+    if (normalized.length > 0) {
+      return normalized;
+    }
+  }
   const xff = request.headers.get('x-forwarded-for');
   if (xff) {
     const first = xff.split(',')[0];

@@ -14,7 +14,7 @@
 - **Secret configuration requirement:** `resolveConfig` falls back to `DEFAULT_SECRET` if `secret` is omitted or shorter than 16 characters. Always configure a unique cryptographic secret via environment variables in production so third parties cannot precompute valid depth-1..16 tokens.
 - **No raw IP persistence:** Client IPs are immediately transformed into a daily UTC salted HMAC digest (`hashClientIp`) before hitting `QuarantineStore` keys or `onViolation` callbacks.
 - **Zero `<script>` execution in decoys:** Generated decoy HTML contains semantic markup, meta robot directives (`noindex, nofollow, noarchive, nosnippet, noai, noimageai`), escaped text, and archival links—no scripts, forms, or cookies.
-- **Trusted proxy headers notice:** `extractClientIp` inspects `cf-connecting-ip`, `x-nf-client-connection-ip`, and the first `x-forwarded-for` entry when `clientIp` is not passed explicitly. Ensure your hosting layer strips or overwrites spoofed client headers at the edge before forwarding requests.
+- **Trusted proxy headers notice:** Proxy header inspection (`cf-connecting-ip`, `x-nf-client-connection-ip`, `x-real-ip`, and the first `x-forwarded-for` entry) is **disabled by default** (`trustProxyHeaders: false`) so attackers cannot spoof quarantine bypass headers. Only enable `trustProxyHeaders: true` when your edge/reverse proxy unconditionally strips and overwrites client-supplied forwarding headers.
 
 ---
 

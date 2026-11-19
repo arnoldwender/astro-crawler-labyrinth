@@ -95,7 +95,7 @@ import CrawlerTrap from 'astro-crawler-labyrinth/components/CrawlerTrap.astro';
 
 At build time (`astro:build:done`), `astro-crawler-labyrinth`:
 
-- emits deterministic depth-1..`maxDepth` decoy HTML pages under `dist/${routePrefix}/<token>/index.html` matching `<CrawlerTrap />`,
+- emits deterministic depth-1..`maxDepth` decoy HTML pages under `dist/${routePrefix}/<token>/index.html` matching `<CrawlerTrap />` (skipped when `enableSsrEndpoint: true` so CDN static assets never shadow dynamic SSR quarantine/strike tracking),
 - patches `dist/robots.txt` with `Disallow: /${routePrefix}/` across every `User-agent:` group (creating a minimal `robots.txt` if none exists),
 - strips any matching `/${routePrefix}/...` entries recursively from `dist/sitemap*.xml` files (when using `@astrojs/sitemap`, list `crawlerLabyrinth()` **after** `sitemap()` in `integrations` so `astro:build:done` runs after the sitemap is generated).
 
@@ -175,8 +175,8 @@ export default async (request: Request, context: { next: () => Promise<Response>
 | `enableSsrEndpoint` | `boolean` | `false` | Injects `/${routePrefix}/[...slug]` endpoint + `pre` middleware during `astro:config:setup`. |
 | `stripFromSitemap` | `boolean` | `true` | Recursively removes matching `/<routePrefix>/` `<url>` blocks from `dist/sitemap*.xml` (list `crawlerLabyrinth()` after `@astrojs/sitemap()`). |
 | `basePath` | `string` | `''` (auto from Astro `base`) | Subpath mount prefix (e.g. `'/docs'`) propagated automatically from `astro.config` `base`. |
-| `trailingSlash` | `'always' \| 'never' \| 'ignore'` | `'always'` (auto from Astro `trailingSlash`) | Controls trailing slashes on emitted trap links and `robots.txt` rules; synced automatically from `astro.config`. |
-| `trustProxyHeaders` | `boolean` | `false` | Opt-in to read `CF-Connecting-IP` / `X-Real-IP` / `X-Forwarded-For` when no explicit platform IP is passed; leave `false` unless behind a trusted reverse proxy that strips client-supplied headers. |
+| `trailingSlash` | `'always' \| 'never' \| 'ignore'` | `'always'` (auto from Astro `trailingSlash`) | Controls trailing slashes on emitted `<CrawlerTrap />` and decoy links; synced from `astro.config`. (`robots.txt` always emits `Disallow: <basePath>/<prefix>/`.) |
+| `trustProxyHeaders` | `boolean` | `false` | Opt-in to read `CF-Connecting-IP` / `X-Nf-Client-Connection-Ip` / `X-Real-IP` / `X-Forwarded-For` when no explicit platform IP is passed; leave `false` unless behind a trusted reverse proxy that strips client-supplied headers. |
 | `entrySeed` | `string` | `'archroot0001'` | Sanitized alphanumeric seed (`4..24` chars) for deterministic bait tokens. |
 | `onViolation` | `(event: TrapViolationEvent) => void \| Promise<void>` | `undefined` | Optional telemetry hook invoked with masked `ipDigest` and violation metadata. |
 

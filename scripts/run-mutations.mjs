@@ -101,6 +101,54 @@ const MUTATIONS = [
     find: '<div hidden inert aria-hidden="true" data-crawler-labyrinth="1">',
     replace: '<div inert aria-hidden="true" data-crawler-labyrinth="1">',
   },
+  {
+    name: 'timingSafeEqualHex drops length-equality guard allowing prefix matches',
+    file: 'src/crypto.ts',
+    find: '  if (a.length !== b.length || a.length === 0) {',
+    replace: '  if (a.length === 0 || b.length === 0) {',
+  },
+  {
+    name: 'QuarantineStore skips Pass 1 expired cleanup inside evictOldest',
+    file: 'src/quarantine.ts',
+    find: '  private evictOldest(nowMs: number): void {\n    for (const [key, value] of this.entries) {\n      if (value.expiresAt <= nowMs) {\n        this.entries.delete(key);\n      }\n    }',
+    replace: '  private evictOldest(nowMs: number): void {',
+  },
+  {
+    name: 'QuarantineStore stops refreshing LRU order inside isQuarantined',
+    file: 'src/quarantine.ts',
+    find: '    // Refresh insertion order for bounded LRU behavior.\n    this.entries.delete(ipDigest);\n    this.entries.set(ipDigest, rec);',
+    replace: '    // LRU refresh disabled.',
+  },
+  {
+    name: 'Edge handler emits non-empty body on HEAD block response',
+    file: 'src/edge.ts',
+    find: '  return new Response(isHead ? null : `${message}\\n`, {',
+    replace: '  return new Response(`${message}\\n`, {',
+  },
+  {
+    name: 'Edge handler accepts tokens deeper than configured maxDepth',
+    file: 'src/edge.ts',
+    find: '    const parsed = verified && verified.depth <= base.maxDepth ? verified : null;',
+    replace: '    const parsed = verified;',
+  },
+  {
+    name: 'Endpoint emits Not Found body on HEAD 404 misses',
+    file: 'src/endpoint.ts',
+    find: "    return new Response(isHead ? null : 'Not Found', {",
+    replace: "    return new Response('Not Found', {",
+  },
+  {
+    name: 'Integration fails to warn when SSR uses DEFAULT_SECRET',
+    file: 'src/integration.ts',
+    find: '        if (activeConfig.enableSsrEndpoint && activeConfig.usesDefaultSecret) {',
+    replace: '        if (false && activeConfig.enableSsrEndpoint && activeConfig.usesDefaultSecret) {',
+  },
+  {
+    name: 'Integration Vite transform leaks serialized secret to client bundles',
+    file: 'src/integration.ts',
+    find: "            if (\n              transformOptions?.ssr === false ||\n              this.environment?.name === 'client' ||\n              (!this.environment && transformOptions?.ssr !== true)\n            ) {",
+    replace: '            if (false) {',
+  },
 ];
 
 function createWorkspaceCopy() {
