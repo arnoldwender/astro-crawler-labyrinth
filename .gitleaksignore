@@ -1,0 +1,7 @@
+# Synthetic `0123456789abcdef` offline unit-test fixture literals from the initial PR #1 commit
+# (never real credentials; replaced with low-entropy fixture labels in subsequent commits).
+b0f4e7f4c19bb26959af7954a703707bac1c6cef:test/labyrinth.test.ts:generic-api-key:65
+b0f4e7f4c19bb26959af7954a703707bac1c6cef:test/labyrinth.test.ts:generic-api-key:87
+b0f4e7f4c19bb26959af7954a703707bac1c6cef:test/labyrinth.test.ts:generic-api-key:155
+b0f4e7f4c19bb26959af7954a703707bac1c6cef:test/labyrinth.test.ts:generic-api-key:194
+b0f4e7f4c19bb26959af7954a703707bac1c6cef:test/labyrinth.test.ts:generic-api-key:258
