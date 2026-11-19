@@ -6,13 +6,13 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting an issue. Please avoid sharing real site secrets or raw client IP logs.
+        **Zero Support Policy:** This repository provides **zero technical or private support** ([SUPPORT.md](../../SUPPORT.md)). Use GitHub Issues **only** for reproducible defects in the code, with no guaranteed reply or fix. **Do not** contact the author privately. Software is used at your sole risk with zero liability ("AS IS"). Please avoid sharing real site secrets or raw client IP logs.
   - type: input
     id: package-version
     attributes:
       label: Package & Astro Versions
       description: Output of `node -v`, Astro version, and `astro-crawler-labyrinth` version
-      placeholder: "Node 22.x, Astro 7.x, astro-crawler-labyrinth 1.0.0"
+      placeholder: "Node 22.x, Astro 7.x, astro-crawler-labyrinth 1.0.1"
     validations:
       required: true
   - type: dropdown

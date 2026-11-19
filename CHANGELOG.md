@@ -4,6 +4,11 @@ All notable changes to `astro-crawler-labyrinth` are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-11-19
+
+### Changed
+- Added explicit zero-support, GitHub-Issues-only bug reporting, no-private-support, and no-warranty / zero-liability ("AS IS") terms across `SUPPORT.md`, `README.md`, `SECURITY.md`, `CONTRIBUTING.md`, and `.github/ISSUE_TEMPLATE/*` (removing author-website contact links from `SECURITY.md` and `config.yml`).
+
 ## [1.0.0] - 2026-11-19
 
 ### Added
