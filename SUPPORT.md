@@ -33,10 +33,11 @@ Filing an issue or advisory creates **no obligation, commitment, or timeline** f
 
 ---
 
-## 4. No Warranty & Zero Responsibility ("AS IS")
+## 4. No Warranty, Zero Responsibility ("AS IS") & No Legal Advice
 
 Under the [MIT License](LICENSE):
 
 - The software is provided **"AS IS"**, without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and noninfringement.
 - In no event shall the authors or copyright holders assume **any responsibility or liability** for any claim, damages, data loss, site outages, Edge compute/bandwidth usage, search-engine or crawler indexing impact, false positives, or other liability, whether in an action of contract, tort, or otherwise, arising from, out of, or in connection with the software or the use or other dealings in the software.
-- You are solely responsible for auditing, configuring secrets, testing, and operating the package in your own environment.
+- Decoy pages, `robots.txt` patches, and telemetry hooks included in this repository are software utilities only and **never constitute legal, security, or compliance advice**.
+- You are solely responsible for auditing, configuring secrets, testing, legally verifying, and operating the package in your own environment.
