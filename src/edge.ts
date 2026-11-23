@@ -60,12 +60,17 @@ function isExcludedPath(lowerPath: string, excludedPrefixes: readonly string[]):
   return false;
 }
 
-function buildSecurityHeaders(contentType: string, retryAfterSeconds?: number): Headers {
+function buildSecurityHeaders(
+  contentType: string,
+  stateHeader: 'decoy' | 'quarantined' | 'observed' | 'burst-shed',
+  retryAfterSeconds?: number,
+): Headers {
   const headers = new Headers({
     'Content-Type': contentType,
     'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet, noai, noimageai',
     'Cache-Control': 'no-store, no-cache, must-revalidate, private',
     'X-Content-Type-Options': 'nosniff',
+    'X-Crawler-Labyrinth': stateHeader,
   });
   if (typeof retryAfterSeconds === 'number' && retryAfterSeconds > 0) {
     headers.set('Retry-After', String(retryAfterSeconds));
@@ -73,7 +78,12 @@ function buildSecurityHeaders(contentType: string, retryAfterSeconds?: number): 
   return headers;
 }
 
-function buildBlockResponse(status: 429 | 403, retryAfterSeconds: number, isHead: boolean): Response {
+function buildBlockResponse(
+  status: 429 | 403,
+  retryAfterSeconds: number,
+  isHead: boolean,
+  stateHeader: 'quarantined' | 'burst-shed' = 'quarantined',
+): Response {
   const message =
     status === 429
       ? 'HTTP 429 Too Many Requests: Automated traversal of disallowed robots.txt routes is rate-limited.'
@@ -81,7 +91,7 @@ function buildBlockResponse(status: 429 | 403, retryAfterSeconds: number, isHead
 
   return new Response(isHead ? null : `${message}\n`, {
     status,
-    headers: buildSecurityHeaders('text/plain; charset=utf-8', status === 429 ? retryAfterSeconds : undefined),
+    headers: buildSecurityHeaders('text/plain; charset=utf-8', stateHeader, status === 429 ? retryAfterSeconds : undefined),
   });
 }
 
@@ -182,7 +192,7 @@ export function createEdgeLabyrinthHandler(options?: EdgeLabyrinthOptions): Edge
     const hasIdentifiableIp = extractedIp !== null;
     const ipDigest = await hashClientIp(extractedIp ?? '0.0.0.0', base.secret);
 
-    if (hasIdentifiableIp) {
+    if (hasIdentifiableIp && base.mode !== 'observe') {
       const existing = store.isQuarantined(ipDigest);
       if (existing.quarantined) {
         return buildBlockResponse(base.blockStatus, existing.retryAfterSeconds, isHead);
@@ -195,13 +205,9 @@ export function createEdgeLabyrinthHandler(options?: EdgeLabyrinthOptions): Edge
     }
 
     const rawToken = trapMatch ? (trapMatch[1] ?? '') : 'ua-guard';
-    const outcome = hasIdentifiableIp
-      ? store.recordHit(ipDigest, base.mode, base.strikeThreshold, base.blockTtlMs)
-      : {
-          quarantined: base.mode === 'block',
-          retryAfterSeconds: Math.max(60, Math.ceil(base.blockTtlMs / 1000)),
-          strikes: 1,
-        };
+    const verified = trapMatch && rawToken ? await verifyTrapToken(rawToken, base.secret) : null;
+    const parsed = verified && verified.depth <= base.maxDepth ? verified : null;
+    const entryVector = !trapMatch ? 'ua_guard' : parsed ? 'signed_bait' : 'robots_probe';
 
     const notify = async (event: TrapViolationEvent): Promise<void> => {
       if (!base.onViolation) {
@@ -214,6 +220,28 @@ export function createEdgeLabyrinthHandler(options?: EdgeLabyrinthOptions): Edge
       }
     };
 
+    if (base.burstLimitPerMinute > 0 && store.isBurstExceeded(base.burstLimitPerMinute)) {
+      await notify({
+        timestamp: new Date().toISOString(),
+        ipDigest,
+        userAgentExcerpt: userAgent.slice(0, 120),
+        routeToken: rawToken || 'root',
+        actionTaken: 'burst_shed',
+        entryVector,
+        strikes: 0,
+        status: 429,
+      });
+      return buildBlockResponse(429, 60, isHead, 'burst-shed');
+    }
+
+    const outcome = hasIdentifiableIp
+      ? store.recordHit(ipDigest, base.mode, base.strikeThreshold, base.blockTtlMs)
+      : {
+          quarantined: base.mode === 'block',
+          retryAfterSeconds: Math.max(60, Math.ceil(base.blockTtlMs / 1000)),
+          strikes: 1,
+        };
+
     if (outcome.quarantined) {
       await notify({
         timestamp: new Date().toISOString(),
@@ -221,14 +249,13 @@ export function createEdgeLabyrinthHandler(options?: EdgeLabyrinthOptions): Edge
         userAgentExcerpt: userAgent.slice(0, 120),
         routeToken: rawToken || 'root',
         actionTaken: 'quarantined',
+        entryVector,
         strikes: outcome.strikes,
         status: base.blockStatus,
       });
       return buildBlockResponse(base.blockStatus, outcome.retryAfterSeconds, isHead);
     }
 
-    const verified = rawToken ? await verifyTrapToken(rawToken, base.secret) : null;
-    const parsed = verified && verified.depth <= base.maxDepth ? verified : null;
     const depth = parsed ? parsed.depth : 1;
     const seed = parsed
       ? parsed.seed
@@ -246,19 +273,24 @@ export function createEdgeLabyrinthHandler(options?: EdgeLabyrinthOptions): Edge
       linksPerPage: 3,
     });
 
+    const isObserve = base.mode === 'observe';
+    const actionTaken = isObserve ? 'observed' : 'decoy_served';
+    const stateHeader = isObserve ? 'observed' : 'decoy';
+
     await notify({
       timestamp: new Date().toISOString(),
       ipDigest,
       userAgentExcerpt: userAgent.slice(0, 120),
       routeToken: rawToken || 'root',
-      actionTaken: 'decoy_served',
+      actionTaken,
+      entryVector,
       strikes: outcome.strikes,
       status: 200,
     });
 
     return new Response(isHead ? null : decoy.body, {
       status: 200,
-      headers: buildSecurityHeaders(decoy.contentType),
+      headers: buildSecurityHeaders(decoy.contentType, stateHeader),
     });
   };
 }

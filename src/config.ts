@@ -132,7 +132,18 @@ export function sanitizeRoutePrefix(raw: string | undefined): string {
 }
 
 function sanitizeMode(raw: TrapMode | undefined): TrapMode {
-  return raw === 'labyrinth' || raw === 'block' || raw === 'hybrid' ? raw : 'hybrid';
+  return raw === 'labyrinth' || raw === 'block' || raw === 'hybrid' || raw === 'observe' ? raw : 'hybrid';
+}
+
+export function sanitizeBurstLimit(val: number | undefined, fallback = 300): number {
+  if (typeof val !== 'number' || !Number.isFinite(val)) {
+    return fallback;
+  }
+  const n = Math.trunc(val);
+  if (n <= 0) return 0;
+  if (n < 5) return 5;
+  if (n > 10_000) return 10_000;
+  return n;
 }
 
 function sanitizeFormat(raw: ResponseFormat | undefined): ResponseFormat {
@@ -176,6 +187,7 @@ export function resolveConfig(options: LabyrinthOptions = {}): ResolvedLabyrinth
     strikeThreshold: clampInt(options.strikeThreshold, 1, 100, 5),
     blockTtlMs: clampInt(options.blockTtlMs, 60_000, 7 * 24 * 60 * 60 * 1000, 6 * 60 * 60 * 1000),
     blockStatus: options.blockStatus === 403 ? 403 : 429,
+    burstLimitPerMinute: sanitizeBurstLimit(options.burstLimitPerMinute),
     patchRobots: options.patchRobots ?? true,
     contentSignal: options.contentSignal ?? false,
     interceptTrainingBots: options.interceptTrainingBots ?? false,

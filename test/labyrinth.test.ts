@@ -19,7 +19,9 @@ import {
   normalizeClientIp,
   patchRobotsTxt,
   QuarantineStore,
+  renderCrawlerBaitHtml,
   resolveConfig,
+  sanitizeBurstLimit,
   sanitizeRoutePrefix,
   signTrapToken,
   stripTrapFromSitemapXml,
@@ -603,4 +605,94 @@ describe('End-to-End Astro SSG Build & Component Integration', () => {
     expect(ssrSummary.pagesWritten).toBe(0);
     expect(ssrSummary.robotsPatched).toBe(true);
   }, 30_000);
+});
+
+describe('v1.1.0 Observe Mode, Burst Shedding, Entry Vector & Bait HTML', () => {
+  it('supports observe dry-run mode without quarantining and classifies entryVector accurately', async () => {
+    const secret = 'unit-fixture-observe-key-123456';
+    const baitToken = (await buildBaitLinks({ secret }))[0]!.token;
+    const events: TrapViolationEvent[] = [];
+    const handler = createEdgeLabyrinthHandler({
+      mode: 'observe',
+      strikeThreshold: 1,
+      interceptTrainingBots: true,
+      secret,
+      onViolation: (ev) => {
+        events.push(ev);
+      },
+    });
+
+    const baitRes = await handler(new Request(`https://example.test/crawler-trap/${baitToken}/`), '198.51.100.71');
+    const probeRes = await handler(new Request('https://example.test/crawler-trap/unsigned-probe/'), '198.51.100.71');
+    const uaRes = await handler(
+      new Request('https://example.test/about/', { headers: { 'user-agent': 'GPTBot/1.2' } }),
+      '198.51.100.71',
+    );
+    // Past strikeThreshold, observe mode still serves 200 without quarantining ordinary routes
+    expect(baitRes?.status).toBe(200);
+    expect(baitRes?.headers.get('X-Crawler-Labyrinth')).toBe('observed');
+    expect(probeRes?.status).toBe(200);
+    expect(uaRes?.status).toBe(200);
+    expect(await handler(new Request('https://example.test/about/'), '198.51.100.71')).toBeNull();
+
+    expect(events.map((e) => [e.actionTaken, e.entryVector])).toEqual([
+      ['observed', 'signed_bait'],
+      ['observed', 'robots_probe'],
+      ['observed', 'ua_guard'],
+    ]);
+  });
+
+  it('sheds flood bursts past burstLimitPerMinute with 429 burst-shed without growing QuarantineStore', async () => {
+    expect(sanitizeBurstLimit(0)).toBe(0);
+    expect(sanitizeBurstLimit(-5)).toBe(0);
+    expect(sanitizeBurstLimit(2)).toBe(5);
+    expect(sanitizeBurstLimit(99_999)).toBe(10_000);
+    expect(sanitizeBurstLimit(Number.NaN)).toBe(300);
+
+    const store = new QuarantineStore(64);
+    for (let i = 0; i < 5; i++) {
+      expect(store.isBurstExceeded(5, 60_000)).toBe(false);
+    }
+    expect(store.isBurstExceeded(5, 60_000)).toBe(true);
+    // New 60-second UTC bucket resets burst window
+    expect(store.isBurstExceeded(5, 120_000)).toBe(false);
+
+    const events: TrapViolationEvent[] = [];
+    const handler = createEdgeLabyrinthHandler({
+      mode: 'labyrinth',
+      burstLimitPerMinute: 5,
+      secret: 'unit-fixture-burst-key-123456',
+      onViolation: (ev) => {
+        events.push(ev);
+      },
+    });
+    for (let i = 0; i < 5; i++) {
+      const okRes = await handler(new Request('https://example.test/crawler-trap/probe/'), `198.51.100.${80 + i}`);
+      expect(okRes?.status).toBe(200);
+      expect(okRes?.headers.get('X-Crawler-Labyrinth')).toBe('decoy');
+    }
+    const shedRes = await handler(new Request('https://example.test/crawler-trap/probe/'), '198.51.100.99');
+    expect(shedRes?.status).toBe(429);
+    expect(shedRes?.headers.get('Retry-After')).toBe('60');
+    expect(shedRes?.headers.get('X-Crawler-Labyrinth')).toBe('burst-shed');
+    expect(events[5]?.actionTaken).toBe('burst_shed');
+    for (const ev of events) {
+      expect(ev.ipDigest).toHaveLength(64);
+      expect(ev.ipDigest).not.toContain('198.51.100');
+    }
+  });
+
+  it('renders accessible-inert HTML bait string matching CrawlerTrap attributes and escaping', async () => {
+    const html = await renderCrawlerBaitHtml({
+      routePrefix: 'crawler-trap',
+      basePath: '/docs',
+      count: 2,
+      label: 'Archive <Ref> & "Index"',
+      secret: 'unit-fixture-bait-html-key-1234',
+    });
+    expect(html).toContain('<div hidden inert aria-hidden="true" data-crawler-labyrinth="1">');
+    expect(html).toContain('rel="nofollow noopener" tabindex="-1" aria-hidden="true"');
+    expect(html).toContain('Archive &lt;Ref&gt; &amp; &quot;Index&quot; 1');
+    expect(html).toContain('href="/docs/crawler-trap/');
+  });
 });

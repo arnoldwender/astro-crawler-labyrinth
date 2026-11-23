@@ -41,3 +41,27 @@ export async function buildBaitLinks(props: CrawlerTrapProps = {}): Promise<read
 
   return links;
 }
+
+function escapeHtmlAttr(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Renders the accessible-inert honeypot container as a standalone HTML string
+ * matching `<CrawlerTrap />` for non-Astro runtimes or raw template integration.
+ */
+export async function renderCrawlerBaitHtml(props: CrawlerTrapProps = {}): Promise<string> {
+  const links = await buildBaitLinks(props);
+  const anchors = links
+    .map(
+      (link) =>
+        `<a href="${escapeHtmlAttr(link.href)}" rel="nofollow noopener" tabindex="-1" aria-hidden="true">${escapeHtmlAttr(link.label)}</a>`,
+    )
+    .join('');
+  return `<div hidden inert aria-hidden="true" data-crawler-labyrinth="1">${anchors}</div>`;
+}

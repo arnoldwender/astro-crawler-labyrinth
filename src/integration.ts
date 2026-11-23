@@ -46,6 +46,7 @@ function serializeInjectedConfig(resolved: ResolvedLabyrinthConfig): Record<stri
     strikeThreshold: resolved.strikeThreshold,
     blockTtlMs: resolved.blockTtlMs,
     blockStatus: resolved.blockStatus,
+    burstLimitPerMinute: resolved.burstLimitPerMinute,
     patchRobots: resolved.patchRobots,
     contentSignal: resolved.contentSignal,
     interceptTrainingBots: resolved.interceptTrainingBots,

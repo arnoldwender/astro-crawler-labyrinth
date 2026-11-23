@@ -1,6 +1,6 @@
 export { default, emitStaticLabyrinth } from './integration.js';
 export type { StaticBuildSummary } from './integration.js';
-export { buildBaitLinks } from './bait.js';
+export { buildBaitLinks, renderCrawlerBaitHtml } from './bait.js';
 export {
   DEFAULT_ROUTE_PREFIX,
   DEFAULT_SECRET,
@@ -9,6 +9,7 @@ export {
   isTrainingOnlyUserAgent,
   normalizeBasePath,
   resolveConfig,
+  sanitizeBurstLimit,
   sanitizeRoutePrefix,
   sanitizeSeed,
   sanitizeTrailingSlash,
@@ -36,6 +37,7 @@ export type {
   CrawlerTrapProps,
   DecoyDocument,
   EdgeLabyrinthOptions,
+  EntryVector,
   LabyrinthOptions,
   ResolvedLabyrinthConfig,
   ResponseFormat,

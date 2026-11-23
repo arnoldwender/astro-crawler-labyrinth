@@ -21,6 +21,7 @@
 | **Author** | [Arnold Wender](https://arnoldwender.com) |
 | **Repository** | [github.com/arnoldwender/astro-crawler-labyrinth](https://github.com/arnoldwender/astro-crawler-labyrinth) |
 | **Companion WordPress Plugin** | [arnoldwender/crawler-labyrinth](https://github.com/arnoldwender/crawler-labyrinth) |
+| **Companion Framework-Agnostic Core** | [crawler-labyrinth](https://github.com/arnoldwender/crawler-labyrinth-js) (`npm i crawler-labyrinth`) |
 | **Runtime & Peer Support** | Node.js `>= 20.0.0` · Astro `^5 \|\| ^6 \|\| ^7` · WebCrypto & Fetch Standard |
 | **License** | [MIT License](LICENSE) |
 | **Built with an agentic workflow** | Developed with AI coding agents. Review and test it like any third-party code before you use it in production. |
@@ -161,7 +162,7 @@ export default async (request: Request, context: { next: () => Promise<Response>
 | Option | Type | Default | Constraints & Behavior |
 | :--- | :--- | :--- | :--- |
 | `routePrefix` | `string` | `'crawler-trap'` | 3–32 chars (`[a-z0-9_-]`); reserved paths (`_astro`, `_assets`, `api`, `media`, `well-known`, `robots`, `sitemap`, `favicon`, `admin`) fall back to `'crawler-trap'`. |
-| `mode` | `'hybrid' \| 'labyrinth' \| 'block'` | `'hybrid'` | `hybrid`: serve decoys up to `strikeThreshold`, then block. `labyrinth`: always serve decoys. `block`: quarantine on strike 1. |
+| `mode` | `'hybrid' \| 'labyrinth' \| 'block' \| 'observe'` | `'hybrid'` | `hybrid`: serve decoys up to `strikeThreshold`, then block. `labyrinth`: always serve decoys. `block`: quarantine on strike 1. `observe`: dry-run decoy + telemetry logging (`X-Crawler-Labyrinth: observed`) without quarantining. |
 | `format` | `'html' \| 'plain'` | `'html'` | Response body format for Edge/SSR decoys (SSG always emits HTML documents). |
 | `secret` | `string` | `DEFAULT_SECRET` | Minimum 16 characters required; shorter values fall back to default seed. |
 | `staticPages` | `number` | `24` | Clamped to `4..256` decoy pages generated on `astro:build:done`. |
@@ -169,7 +170,8 @@ export default async (request: Request, context: { next: () => Promise<Response>
 | `linkCount` | `number` | `1` | Clamped to `1..5`; number of default bait links emitted by `<CrawlerTrap />`. |
 | `strikeThreshold` | `number` | `5` | Clamped to `1..100`; decoys served before quarantine in `hybrid` mode. |
 | `blockTtlMs` | `number` | `21600000` (6h) | Clamped to `60_000..604_800_000` (1m to 7d). Sets `Retry-After` on HTTP `429`. |
-| `blockStatus` | `429 \| 403` | `429` | HTTP status code sent during quarantine. |
+| `blockStatus` | `429 \| 403` | `429` | HTTP status code sent during quarantine (`X-Crawler-Labyrinth: quarantined`). |
+| `burstLimitPerMinute` | `number` | `300` | Global trap hits per 60 s UTC bucket before shedding flood requests with `429` (`X-Crawler-Labyrinth: burst-shed`, `Retry-After: 60`); `0` disables, otherwise clamped `5..10_000`. |
 | `patchRobots` | `boolean` | `true` | Injects `Disallow: /<routePrefix>/` across all `User-agent` groups in `dist/robots.txt`. |
 | `contentSignal` | `boolean` | `false` | Appends `Content-Signal: search=yes, ai-train=no` to `User-agent: *` when patching `robots.txt`. |
 | `interceptTrainingBots` | `boolean` | `false` | Opt-in UA check for Edge/SSR mode (`GPTBot`, `CCBot`, `ClaudeBot`, `Bytespider`, `Scrapy`, etc.), strictly sparing search/citation bots first. |
@@ -224,9 +226,10 @@ npm run test:mutations
 
 ---
 
-## Companion WordPress Implementation
+## Companion Implementations
 
-Looking for the WordPress counterpart sharing the same RFC 9309, accessible-inert bait, and HMAC-signed token design? See [crawler-labyrinth](https://github.com/arnoldwender/crawler-labyrinth).
+- **Framework-Agnostic Web Standards Core (Next.js, SvelteKit, Hono, Workers, Deno, Node):** [arnoldwender/crawler-labyrinth-js](https://github.com/arnoldwender/crawler-labyrinth-js) (`crawler-labyrinth` on npm, MIT)
+- **WordPress Plugin (PHP 8.2+):** [arnoldwender/crawler-labyrinth](https://github.com/arnoldwender/crawler-labyrinth) (GPLv2+)
 
 ---
 
