@@ -23,6 +23,7 @@
 | **Companion WordPress Plugin** | [arnoldwender/crawler-labyrinth](https://github.com/arnoldwender/crawler-labyrinth) |
 | **Runtime & Peer Support** | Node.js `>= 20.0.0` · Astro `^5 \|\| ^6 \|\| ^7` · WebCrypto & Fetch Standard |
 | **License** | [MIT License](LICENSE) |
+| **Built with an agentic workflow** | Developed with AI coding agents. Review and test it like any third-party code before you use it in production. |
 | **Support & Liability** | **Zero support** — reproducible bugs on [GitHub Issues](https://github.com/arnoldwender/astro-crawler-labyrinth/issues) only · **no private support** · **AS IS / no liability** ([SUPPORT.md](SUPPORT.md)) |
 | **Verification** | `npm run typecheck && npm run build && npm test && npm run test:mutations && npm pack --dry-run` |
 
@@ -30,7 +31,7 @@
 
 ## Why This Exists
 
-Aggressive AI training scrapers routinely ignore `robots.txt` and traverse every `<a href>` they extract from HTML. Blocking by static User-Agent lists alone misses spoofed scrapers, while third-party bot-mitigation SaaS proxies add latency and send visitor metadata off-site.
+`robots.txt` is a request, not a lock: RFC 9309 says its rules "are not a form of access authorization". A crawler that does not honor it can traverse every `<a href>` it extracts from HTML. Blocking by static User-Agent lists alone misses spoofed scrapers, while third-party bot-mitigation SaaS proxies add latency and send visitor metadata off-site.
 
 `astro-crawler-labyrinth` keeps the entire defense deterministic, local, and reversible inside your Astro build and Edge/SSR runtime:
 

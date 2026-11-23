@@ -112,7 +112,9 @@ export function patchRobotsTxt(
       continue;
     }
 
-    // Per RFC 9309, a blank line or Sitemap directive terminates an open User-agent group.
+    // RFC 9309 ends a group only at the next user-agent line or end of file (§2.1); blank lines
+    // may sit inside a group (§2.2). Flushing here only picks the insertion point: the Disallow
+    // goes before the blank line or Sitemap line, so it still belongs to the same group.
     if (inGroup && (trimmed === '' || isSitemap)) {
       flushGroup();
       result.push(line);
