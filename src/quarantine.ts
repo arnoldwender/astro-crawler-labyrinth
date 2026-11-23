@@ -1,3 +1,5 @@
+import type { TrapMode } from './types.js';
+
 interface StrikeRecord {
   strikes: number;
   quarantinedUntil: number;
@@ -7,6 +9,8 @@ interface StrikeRecord {
 export class QuarantineStore {
   private readonly entries = new Map<string, StrikeRecord>();
   private readonly maxEntries: number;
+  private burstBucket = -1;
+  private burstCount = 0;
 
   constructor(maxEntries = 4096) {
     const safeMax = Number.isFinite(maxEntries) ? Math.trunc(maxEntries) : 4096;
@@ -35,7 +39,7 @@ export class QuarantineStore {
 
   recordHit(
     ipDigest: string,
-    mode: 'hybrid' | 'labyrinth' | 'block',
+    mode: TrapMode,
     strikeThreshold: number,
     blockTtlMs: number,
     nowMs = Date.now(),
@@ -68,6 +72,25 @@ export class QuarantineStore {
 
   size(): number {
     return this.entries.size;
+  }
+
+  /**
+   * Fixed 60-second UTC window circuit breaker to shed global floods without growing the LRU map.
+   */
+  isBurstExceeded(limitPerMinute: number, nowMs = Date.now()): boolean {
+    if (!Number.isFinite(limitPerMinute) || limitPerMinute <= 0) {
+      return false;
+    }
+    const bucket = Math.trunc(nowMs / 60_000);
+    if (this.burstBucket !== bucket) {
+      this.burstBucket = bucket;
+      this.burstCount = 0;
+    }
+    if (this.burstCount >= limitPerMinute) {
+      return true;
+    }
+    this.burstCount += 1;
+    return false;
   }
 
   private evictOldest(nowMs: number): void {

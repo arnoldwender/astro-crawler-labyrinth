@@ -1,15 +1,18 @@
-export type TrapMode = 'hybrid' | 'labyrinth' | 'block';
+export type TrapMode = 'hybrid' | 'labyrinth' | 'block' | 'observe';
 
 export type ResponseFormat = 'html' | 'plain';
 
 export type TrailingSlashMode = 'always' | 'never' | 'ignore';
+
+export type EntryVector = 'signed_bait' | 'robots_probe' | 'ua_guard';
 
 export interface TrapViolationEvent {
   readonly timestamp: string;
   readonly ipDigest: string;
   readonly userAgentExcerpt: string;
   readonly routeToken: string;
-  readonly actionTaken: 'decoy_served' | 'quarantined';
+  readonly actionTaken: 'decoy_served' | 'quarantined' | 'observed' | 'burst_shed';
+  readonly entryVector?: EntryVector;
   readonly strikes: number;
   readonly status: number;
 }
@@ -27,6 +30,7 @@ export interface LabyrinthOptions {
   readonly strikeThreshold?: number;
   readonly blockTtlMs?: number;
   readonly blockStatus?: 429 | 403;
+  readonly burstLimitPerMinute?: number;
   readonly patchRobots?: boolean;
   readonly contentSignal?: boolean;
   readonly interceptTrainingBots?: boolean;
@@ -51,6 +55,7 @@ export interface ResolvedLabyrinthConfig {
   readonly strikeThreshold: number;
   readonly blockTtlMs: number;
   readonly blockStatus: 429 | 403;
+  readonly burstLimitPerMinute: number;
   readonly patchRobots: boolean;
   readonly contentSignal: boolean;
   readonly interceptTrainingBots: boolean;

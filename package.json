@@ -1,6 +1,6 @@
 {
   "name": "astro-crawler-labyrinth",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "Local deterministic crawler tarpit integration, accessible-inert CrawlerTrap component, and Web-standard Edge/SSR quarantine handler for Astro.",
   "type": "module",
   "license": "MIT",
@@ -59,6 +59,11 @@
   "peerDependencies": {
     "astro": "^5.0.0 || ^6.0.0 || ^7.0.0"
   },
+  "peerDependenciesMeta": {
+    "astro": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "astro": "^7.4.13",
@@ -68,10 +73,20 @@
   "keywords": [
     "astro",
     "astro-integration",
-    "robots-txt",
-    "honeypot",
+    "astro-middleware",
     "crawler-labyrinth",
+    "crawler",
+    "ai-crawler",
+    "ai-scraper",
+    "robots-txt",
+    "rfc-9309",
+    "honeypot",
     "tarpit",
+    "bot-protection",
+    "anti-scraping",
+    "edge",
+    "ssr",
+    "security",
     "gdpr"
   ]
 }

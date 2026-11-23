@@ -68,8 +68,8 @@ const MUTATIONS = [
   {
     name: 'Edge handler leaks raw IP in quarantined onViolation telemetry',
     file: 'src/edge.ts',
-    find: '      await notify({\n        timestamp: new Date().toISOString(),\n        ipDigest,',
-    replace: "      await notify({\n        timestamp: new Date().toISOString(),\n        ipDigest: extractedIp ?? '0.0.0.0',",
+    find: "      await notify({\n        timestamp: new Date().toISOString(),\n        ipDigest,\n        userAgentExcerpt: userAgent.slice(0, 120),\n        routeToken: rawToken || 'root',\n        actionTaken: 'quarantined',",
+    replace: "      await notify({\n        timestamp: new Date().toISOString(),\n        ipDigest: extractedIp ?? '0.0.0.0',\n        userAgentExcerpt: userAgent.slice(0, 120),\n        routeToken: rawToken || 'root',\n        actionTaken: 'quarantined',",
   },
   {
     name: 'Edge handler skips interceptTrainingBots check',
@@ -148,6 +148,24 @@ const MUTATIONS = [
     file: 'src/integration.ts',
     find: "            if (\n              transformOptions?.ssr === false ||\n              this.environment?.name === 'client' ||\n              (!this.environment && transformOptions?.ssr !== true)\n            ) {",
     replace: '            if (false) {',
+  },
+  {
+    name: 'sanitizeMode rejects observe dry-run mode',
+    file: 'src/config.ts',
+    find: "return raw === 'labyrinth' || raw === 'block' || raw === 'hybrid' || raw === 'observe' ? raw : 'hybrid';",
+    replace: "return raw === 'labyrinth' || raw === 'block' || raw === 'hybrid' ? raw : 'hybrid';",
+  },
+  {
+    name: 'Edge handler skips global burst circuit breaker load shedding',
+    file: 'src/edge.ts',
+    find: 'if (base.burstLimitPerMinute > 0 && store.isBurstExceeded(base.burstLimitPerMinute)) {',
+    replace: 'if (false && base.burstLimitPerMinute > 0 && store.isBurstExceeded(base.burstLimitPerMinute)) {',
+  },
+  {
+    name: 'renderCrawlerBaitHtml drops hidden and inert attributes',
+    file: 'src/bait.ts',
+    find: 'return `<div hidden inert aria-hidden="true" data-crawler-labyrinth="1">${anchors}</div>`;',
+    replace: 'return `<div aria-hidden="true" data-crawler-labyrinth="1">${anchors}</div>`;',
   },
 ];
 

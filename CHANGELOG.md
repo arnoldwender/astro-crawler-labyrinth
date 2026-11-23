@@ -4,6 +4,15 @@ All notable changes to `astro-crawler-labyrinth` are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-11-23
+
+### Added
+- **Dry-Run `observe` Mode:** Accepts `mode: 'observe'` to serve deterministic decoys and emit `'observed'` `TrapViolationEvent` notifications (`X-Crawler-Labyrinth: observed`) without triggering `429`/`403` quarantines.
+- **Global Burst Circuit Breaker (`burstLimitPerMinute`):** Protects SSR/Edge instances and bounds `QuarantineStore` growth during multi-IP floods by shedding excess trap requests per 60-second bucket with HTTP `429` (`Retry-After: 60`, `X-Crawler-Labyrinth: burst-shed`, `actionTaken: 'burst_shed'`). Default: `300`/min (`0` disables).
+- **Entry Vector Telemetry (`entryVector`):** Tags `TrapViolationEvent` notifications as `'signed_bait'`, `'robots_probe'`, or `'ua_guard'`.
+- **`X-Crawler-Labyrinth` Response Header & `renderCrawlerBaitHtml` Helper:** Emits `decoy`, `quarantined`, `observed`, or `burst-shed` headers for upstream reverse-proxy observability, and exports `renderCrawlerBaitHtml()` for generating the matching `hidden inert` bait container as an HTML string.
+- **Package Discovery & Optional Peer Metadata:** Added `"peerDependenciesMeta"` (`astro` optional for standalone edge users) and expanded npm `keywords`.
+
 ## [1.0.3] - 2026-11-23
 
 ### Changed
