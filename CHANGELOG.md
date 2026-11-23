@@ -4,6 +4,12 @@ All notable changes to `astro-crawler-labyrinth` are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2026-11-23
+
+### Changed
+- `README.md` no longer claims without a source that AI scrapers routinely ignore `robots.txt`; it quotes RFC 9309 ("These rules are not a form of access authorization") and notes the agentic workflow. `SUPPORT.md` section 4 adds that decoy pages, `robots.txt` patches and telemetry hooks are not legal, security or compliance advice.
+- Corrected a comment in `src/robots.ts`: RFC 9309 section 2.1 ends a group at the next `user-agent` line or end of file, not at a blank line. Behaviour is unchanged.
+
 ## [1.0.2] - 2026-11-19
 
 ### Fixed
