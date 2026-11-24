@@ -2,7 +2,7 @@ import { getActiveIntegrationConfig, isTrainingOnlyUserAgent, normalizeBasePath,
 import { hashClientIp, hmacSha256Hex, normalizeClientIp, verifyTrapToken } from './crypto.js';
 import { generateDecoyDocument } from './generator.js';
 import { QuarantineStore } from './quarantine.js';
-import type { EdgeLabyrinthOptions, TrapViolationEvent } from './types.js';
+import type { EdgeLabyrinthOptions, ResolvedLabyrinthConfig, TrapViolationEvent } from './types.js';
 
 const DEFAULT_EXCLUDED_PREFIXES: readonly string[] = [
   '/_astro',
@@ -190,6 +190,13 @@ function getSharedQuarantineStore(): QuarantineStore {
   return shared;
 }
 
+function compileTrapRegex(basePrefix: string, routePrefix: string): RegExp {
+  return new RegExp(
+    `^${escapeRegex(basePrefix)}\\/${escapeRegex(routePrefix)}(?:\\/([\\s\\S]*))?$`,
+    'i',
+  );
+}
+
 export type EdgeLabyrinthHandler = (request: Request, clientIp?: string) => Promise<Response | null>;
 
 /**
@@ -197,17 +204,54 @@ export type EdgeLabyrinthHandler = (request: Request, clientIp?: string) => Prom
  * Deno, and Astro SSR middleware. Returns `null` when the request should pass through.
  */
 export function createEdgeLabyrinthHandler(options?: EdgeLabyrinthOptions): EdgeLabyrinthHandler {
-  const base = options ? resolveConfig(options) : (getActiveIntegrationConfig() ?? resolveConfig());
   const excludedPrefixes = options?.excludedPrefixes ?? DEFAULT_EXCLUDED_PREFIXES;
-  const store = options?.store ?? (options ? new QuarantineStore() : getSharedQuarantineStore());
-  const basePrefix = normalizeBasePath(base.basePath);
-  const trapRegex = new RegExp(
-    `^${escapeRegex(basePrefix)}\\/${escapeRegex(base.routePrefix)}(?:\\/([\\s\\S]*))?$`,
-    'i',
-  );
+  const fixedBase = options ? resolveConfig(options) : null;
+  const fixedBasePrefix = fixedBase ? normalizeBasePath(fixedBase.basePath) : '';
+  const fixedTrapRegex = fixedBase ? compileTrapRegex(fixedBasePrefix, fixedBase.routePrefix) : null;
+  const fixedStore = options ? (options.store ?? new QuarantineStore()) : null;
+
+  let cachedActiveRef: ResolvedLabyrinthConfig | null = null;
+  let fallbackBase: ResolvedLabyrinthConfig | null = null;
+  let cachedBasePrefix = '';
+  let cachedTrapRegex: RegExp | null = null;
   let warnedDefaultSecret = false;
 
   return async (request: Request, clientIp?: string): Promise<Response | null> => {
+    let base: ResolvedLabyrinthConfig;
+    let basePrefix: string;
+    let trapRegex: RegExp;
+
+    if (fixedBase && fixedTrapRegex) {
+      base = fixedBase;
+      basePrefix = fixedBasePrefix;
+      trapRegex = fixedTrapRegex;
+    } else {
+      const activeCfg = getActiveIntegrationConfig();
+      if (activeCfg) {
+        if (activeCfg !== cachedActiveRef || !cachedTrapRegex) {
+          cachedActiveRef = activeCfg;
+          fallbackBase = null;
+          cachedBasePrefix = normalizeBasePath(activeCfg.basePath);
+          cachedTrapRegex = compileTrapRegex(cachedBasePrefix, activeCfg.routePrefix);
+          warnedDefaultSecret = false;
+        }
+        base = activeCfg;
+        basePrefix = cachedBasePrefix;
+        trapRegex = cachedTrapRegex;
+      } else {
+        cachedActiveRef = null;
+        if (!fallbackBase || !cachedTrapRegex) {
+          fallbackBase = resolveConfig();
+          cachedBasePrefix = normalizeBasePath(fallbackBase.basePath);
+          cachedTrapRegex = compileTrapRegex(cachedBasePrefix, fallbackBase.routePrefix);
+        }
+        base = fallbackBase;
+        basePrefix = cachedBasePrefix;
+        trapRegex = cachedTrapRegex;
+      }
+    }
+
+    const store = fixedStore ?? getSharedQuarantineStore();
     if (base.usesDefaultSecret && !warnedDefaultSecret) {
       warnedDefaultSecret = true;
       console.warn(
