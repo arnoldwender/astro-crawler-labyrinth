@@ -188,7 +188,7 @@ export function createEdgeLabyrinthHandler(options?: EdgeLabyrinthOptions): Edge
   const store = options?.store ?? (options ? new QuarantineStore() : getSharedQuarantineStore());
   const basePrefix = normalizeBasePath(base.basePath);
   const trapRegex = new RegExp(
-    `^${escapeRegex(basePrefix)}\\/${escapeRegex(base.routePrefix)}(?:\\/([a-zA-Z0-9_-]{1,96}))?\\/?$`,
+    `^${escapeRegex(basePrefix)}\\/${escapeRegex(base.routePrefix)}(?:\\/([\\s\\S]*))?$`,
     'i',
   );
   let warnedDefaultSecret = false;
@@ -253,8 +253,11 @@ export function createEdgeLabyrinthHandler(options?: EdgeLabyrinthOptions): Edge
       return null;
     }
 
-    const rawToken = trapMatch ? (trapMatch[1] ?? '') : 'ua-guard';
-    const verified = trapMatch && rawToken ? await verifyTrapToken(rawToken, base.secret) : null;
+    const trimmedTail = trapMatch ? (trapMatch[1] ?? '').replace(/^\/+|\/+$/g, '') : '';
+    const tokenCandidate = /^[a-zA-Z0-9_-]{1,96}$/.test(trimmedTail) ? trimmedTail : '';
+    const cleanTail = trimmedTail.replace(/[\x00-\x1F\x7F]+/g, '');
+    const rawToken = trapMatch ? (trimmedTail === '' ? '' : cleanTail.slice(0, 96) || 'control-probe') : 'ua-guard';
+    const verified = trapMatch && tokenCandidate ? await verifyTrapToken(tokenCandidate, base.secret) : null;
     const parsed = verified && verified.depth <= base.maxDepth ? verified : null;
     const entryVector = !trapMatch ? 'ua_guard' : parsed ? 'signed_bait' : 'robots_probe';
 

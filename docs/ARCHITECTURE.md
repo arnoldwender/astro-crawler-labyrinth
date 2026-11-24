@@ -36,7 +36,7 @@ Incoming Request
    │
    ├─ Path normalization: safely URL-decode + collapse slashes + strip basePath
    │
-   ├─ Route matches `/^\/<routePrefix>(?:\/([a-zA-Z0-9_-]{1,96}))?\/?$/i`
+   ├─ Route matches `/^\/<routePrefix>(?:\/([\s\S]*))?$/i` (validates 1st segment `[a-zA-Z0-9_-]{1,96}` for signed bait; multi-segment/other tails classify as `robots_probe`)
    │  OR (not excluded segment AND `interceptTrainingBots && isTrainingOnlyUserAgent(ua)`)
    │     │
    │     ├─ Normal traffic with 0 active quarantines (or `observe` mode): O(1) short-circuit (`hasActiveQuarantines()` false, zero WebCrypto calls) ─▶ return `null`
