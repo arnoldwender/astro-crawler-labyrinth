@@ -39,8 +39,9 @@ Incoming Request
    ├─ Route matches `/^\/<routePrefix>(?:\/([a-zA-Z0-9_-]{1,96}))?\/?$/i`
    │  OR (not excluded segment AND `interceptTrainingBots && isTrainingOnlyUserAgent(ua)`)
    │     │
+   │     ├─ Normal traffic with 0 active quarantines (or `observe` mode): O(1) short-circuit (`hasActiveQuarantines()` false, zero WebCrypto calls) ─▶ return `null`
    │     ├─ Missing client IP (and `trustProxyHeaders: false`): serve stateless decoy (`null` on HEAD), skip IP quarantine pooling
-   │     ├─ Quarantined IP digest (`hashClientIp(normalizeClientIp(ip), secret)` in `QuarantineStore`)
+   │     ├─ Quarantined IP digest (`hashClientIp(normalizeClientIp(ip), secret, utcDay)` across today + bounded `1..7`-day lookback within `blockTtlMs`)
    │     │     └─▶ HTTP 429 (`Retry-After`) or 403 + `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noai, noimageai`
    │     └─ recordHit() in `QuarantineStore` (active bans protected from low-strike LRU eviction):
    │           ├─ strikes > strikeThreshold (or mode === 'block') ──▶ emit TrapViolationEvent + block response
@@ -92,7 +93,7 @@ HMAC-SHA256("<trimmed-ip>|<YYYY-MM-DD>", secret)
 ```
 
 - Raw IPs are never written into `QuarantineStore` keys or emitted in `TrapViolationEvent.ipDigest`.
-- Daily UTC key rotation ensures strike correlation naturally unlinks across days without storing historical lookup tables.
+- Daily UTC key rotation ensures strike correlation unlinks cleanly at midnight while active bans are still checked across a bounded `1..7`-day UTC lookback (`ceil(blockTtlMs / 86_400_000)`) only when `hasActiveQuarantines()` is true.
 
 ---
 
