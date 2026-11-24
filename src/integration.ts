@@ -53,6 +53,7 @@ function serializeInjectedConfig(resolved: ResolvedLabyrinthConfig): Record<stri
     enableSsrEndpoint: resolved.enableSsrEndpoint,
     stripFromSitemap: resolved.stripFromSitemap,
     trustProxyHeaders: resolved.trustProxyHeaders,
+    trustedProxyHeader: resolved.trustedProxyHeader,
     entrySeed: resolved.entrySeed,
   };
 }

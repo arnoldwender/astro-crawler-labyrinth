@@ -120,7 +120,12 @@ async function findActiveQuarantine(
   return null;
 }
 
-function extractClientIp(request: Request, explicitIp: string | undefined, trustProxyHeaders: boolean): string | null {
+function extractClientIp(
+  request: Request,
+  explicitIp: string | undefined,
+  trustProxyHeaders: boolean,
+  trustedProxyHeader?: string,
+): string | null {
   if (explicitIp) {
     const normalized = normalizeClientIp(explicitIp);
     if (normalized.length > 0) {
@@ -129,6 +134,15 @@ function extractClientIp(request: Request, explicitIp: string | undefined, trust
   }
   if (!trustProxyHeaders) {
     return null;
+  }
+  if (trustedProxyHeader) {
+    const raw = request.headers.get(trustedProxyHeader);
+    if (!raw) {
+      return null;
+    }
+    const candidate = trustedProxyHeader === 'x-forwarded-for' ? (raw.split(',')[0] ?? '') : raw;
+    const normalized = normalizeClientIp(candidate);
+    return normalized.length > 0 ? normalized : null;
   }
   const cfIp = request.headers.get('cf-connecting-ip');
   if (cfIp) {
@@ -233,7 +247,7 @@ export function createEdgeLabyrinthHandler(options?: EdgeLabyrinthOptions): Edge
       return null;
     }
 
-    const extractedIp = extractClientIp(request, clientIp, base.trustProxyHeaders);
+    const extractedIp = extractClientIp(request, clientIp, base.trustProxyHeaders, base.trustedProxyHeader);
     const hasIdentifiableIp = extractedIp !== null;
     if (!trapMatch && !uaMatched && !hasIdentifiableIp) {
       return null;

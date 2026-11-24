@@ -39,6 +39,7 @@ export interface LabyrinthOptions {
   readonly enableSsrEndpoint?: boolean;
   readonly stripFromSitemap?: boolean;
   readonly trustProxyHeaders?: boolean;
+  readonly trustedProxyHeader?: string;
   readonly entrySeed?: string;
   readonly onViolation?: (event: TrapViolationEvent) => void | Promise<void>;
 }
@@ -64,6 +65,7 @@ export interface ResolvedLabyrinthConfig {
   readonly enableSsrEndpoint: boolean;
   readonly stripFromSitemap: boolean;
   readonly trustProxyHeaders: boolean;
+  readonly trustedProxyHeader?: string;
   readonly entrySeed: string;
   readonly onViolation?: (event: TrapViolationEvent) => void | Promise<void>;
 }
