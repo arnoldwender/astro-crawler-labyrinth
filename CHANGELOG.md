@@ -4,6 +4,20 @@ All notable changes to `astro-crawler-labyrinth` are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-11-24
+
+### Fixed
+- **O(1) Hot-Path Short-Circuit & Bounded UTC Midnight Rollover (`QuarantineStore`, `edge.ts`):** Added `hasActiveQuarantines()` so normal human traffic executes `0` WebCrypto calls when no bans are active or expired (and in `observe` mode). Added bounded `1..7`-day UTC lookback (`ceil(blockTtlMs / 86_400_000)`) so bans survive `00:00 UTC` cleanly.
+- **SSR Shared `QuarantineStore` & Lazy Config Resolution (`edge.ts`, `endpoint.ts`, `types.ts`):** Shares a default `QuarantineStore` and lazily resolves integration config across module-level `middleware.ts` and `endpoint.ts`, exports `ALL = GET`, and adds optional `store` injection on `EdgeLabyrinthOptions`.
+- **`observe` Dry-Run Parity (`edge.ts`):** Prevents `HTTP 429 burst-shed` responses in `mode === 'observe'`.
+- **Extended Trap Probe Matching (`edge.ts`):** Captures multi-segment paths, `.html` suffixes, newline tails (`[\s\S]*`), and `>96`-char probes under `/<routePrefix>/...` as `robots_probe` while preserving sibling-prefix exclusions.
+- **RFC 9309 `robots.txt` Continuity (`robots.ts`):** Maintains active `User-agent:` group state across blank lines and mid-group `Sitemap:` lines without duplicating `Disallow: /<prefix>/`, while flushing empty `User-agent:` blocks cleanly.
+- **Strict IP Validation & Single-Header Proxy Pinning (`crypto.ts`, `config.ts`, `edge.ts`, `integration.ts`):** Rejects non-IP strings in `normalizeClientIp()` (`""`) and adds `trustedProxyHeader` to restrict proxy extraction to one vetted header against multi-CDN spoofing.
+- **SSR Telemetry Warning (`integration.ts`, docs):** Logs an explicit warning when `enableSsrEndpoint: true` is paired with non-serializable `onViolation`.
+
+### Added
+- Expanded Vitest regression suite (`20 passed (20)`) and mutation suite (`40/40 killed`).
+
 ## [1.1.0] - 2026-11-23
 
 ### Added
