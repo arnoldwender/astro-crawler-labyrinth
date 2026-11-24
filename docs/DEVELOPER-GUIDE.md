@@ -64,6 +64,8 @@ Follow these conventions when contributing:
 
 When writing Edge Workers (Cloudflare Workers, Netlify Edge Functions, Deno Deploy), import from `astro-crawler-labyrinth/edge` so `node:fs/promises` from `src/integration.ts` is never pulled into your edge bundle.
 
+> **SSR Telemetry (`onViolation`) Note:** `crawlerLabyrinth()` injects compiled runtime config via Vite's JSON-only `INJECTED_CONFIG` transform, so `function` callbacks cannot cross build serialization into standalone SSR bundles (`enableSsrEndpoint: true`). Use `createLabyrinthMiddleware({ onViolation })` in `src/middleware.ts` (with `enableSsrEndpoint: false`) when production SSR telemetry callbacks are needed.
+
 ---
 
 ## Test Suite Breakdown (`test/labyrinth.test.ts`)
