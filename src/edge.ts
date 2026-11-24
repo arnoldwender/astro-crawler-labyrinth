@@ -164,6 +164,18 @@ function extractClientIp(request: Request, explicitIp: string | undefined, trust
   return null;
 }
 
+const SHARED_STORE_SYMBOL = Symbol.for('astro-crawler-labyrinth.sharedStore');
+
+function getSharedQuarantineStore(): QuarantineStore {
+  const host = globalThis as Record<symbol, QuarantineStore | undefined>;
+  let shared = host[SHARED_STORE_SYMBOL];
+  if (!shared) {
+    shared = new QuarantineStore();
+    host[SHARED_STORE_SYMBOL] = shared;
+  }
+  return shared;
+}
+
 export type EdgeLabyrinthHandler = (request: Request, clientIp?: string) => Promise<Response | null>;
 
 /**
@@ -173,7 +185,7 @@ export type EdgeLabyrinthHandler = (request: Request, clientIp?: string) => Prom
 export function createEdgeLabyrinthHandler(options?: EdgeLabyrinthOptions): EdgeLabyrinthHandler {
   const base = options ? resolveConfig(options) : (getActiveIntegrationConfig() ?? resolveConfig());
   const excludedPrefixes = options?.excludedPrefixes ?? DEFAULT_EXCLUDED_PREFIXES;
-  const store = new QuarantineStore();
+  const store = options?.store ?? (options ? new QuarantineStore() : getSharedQuarantineStore());
   const basePrefix = normalizeBasePath(base.basePath);
   const trapRegex = new RegExp(
     `^${escapeRegex(basePrefix)}\\/${escapeRegex(base.routePrefix)}(?:\\/([a-zA-Z0-9_-]{1,96}))?\\/?$`,
