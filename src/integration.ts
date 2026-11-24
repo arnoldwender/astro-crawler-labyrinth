@@ -53,6 +53,7 @@ function serializeInjectedConfig(resolved: ResolvedLabyrinthConfig): Record<stri
     enableSsrEndpoint: resolved.enableSsrEndpoint,
     stripFromSitemap: resolved.stripFromSitemap,
     trustProxyHeaders: resolved.trustProxyHeaders,
+    trustedProxyHeader: resolved.trustedProxyHeader,
     entrySeed: resolved.entrySeed,
   };
 }
@@ -176,6 +177,11 @@ export default function crawlerLabyrinth(options: LabyrinthOptions = {}): AstroI
         }
         if (options.routePrefix && activeConfig.routePrefix !== options.routePrefix.trim().replace(/^\/+|\/+$/g, '').toLowerCase()) {
           logger.warn(`Invalid or reserved routePrefix "${options.routePrefix}" fell back to "${activeConfig.routePrefix}".`);
+        }
+        if (activeConfig.enableSsrEndpoint && typeof options.onViolation === 'function') {
+          logger.warn(
+            'Ignoring non-serializable `onViolation` callback in compiled SSR runtime when using `enableSsrEndpoint: true`; wire `createLabyrinthMiddleware({ onViolation })` in `src/middleware.ts` for production SSR telemetry.',
+          );
         }
 
         const serialized = JSON.stringify(serializeInjectedConfig(activeConfig));

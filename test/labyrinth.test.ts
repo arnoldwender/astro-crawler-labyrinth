@@ -3,9 +3,10 @@ import { mkdtemp, mkdir, readdir, readFile, rm, symlink, writeFile } from 'node:
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const execFileAsync = promisify(execFile);
+import { ALL as endpointAll } from '../src/endpoint.js';
 import {
   buildBaitLinks,
   createEdgeLabyrinthHandler,
@@ -33,6 +34,11 @@ import type { TrapViolationEvent } from '../src/types.js';
 const tempDirs: string[] = [];
 
 afterEach(async () => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  const host = globalThis as Record<symbol, unknown>;
+  delete host[Symbol.for('astro-crawler-labyrinth.sharedStore')];
+  delete host[Symbol.for('astro-crawler-labyrinth.config')];
   while (tempDirs.length > 0) {
     const dir = tempDirs.pop();
     if (dir) {
@@ -694,5 +700,185 @@ describe('v1.1.0 Observe Mode, Burst Shedding, Entry Vector & Bait HTML', () => 
     expect(html).toContain('rel="nofollow noopener" tabindex="-1" aria-hidden="true"');
     expect(html).toContain('Archive &lt;Ref&gt; &amp; &quot;Index&quot; 1');
     expect(html).toContain('href="/docs/crawler-trap/');
+  });
+});
+
+describe('Hackaton R1 Security, Hot-Path, RFC 9309, Proxy & SSR Invariants', () => {
+  it('short-circuits normal traffic with zero WebCrypto calls when 0 active bans or expired/observe, and persists bans across UTC midnight rollover', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-24T23:57:00.000Z'));
+
+    const signSpy = vi.spyOn(globalThis.crypto.subtle, 'sign');
+    const handler = createEdgeLabyrinthHandler({
+      mode: 'block',
+      blockTtlMs: 6 * 60 * 60 * 1000,
+      secret: 'unit-fixture-rollover-key-123456',
+      excludedPrefixes: [],
+    });
+
+    const beforeBan = await handler(new Request('https://example.test/about/'), '198.51.100.90');
+    expect(beforeBan).toBeNull();
+    expect(signSpy).toHaveBeenCalledTimes(0);
+
+    const banRes = await handler(new Request('https://example.test/crawler-trap/'), '198.51.100.90');
+    expect(banRes?.status).toBe(429);
+
+    vi.setSystemTime(new Date('2026-11-25T00:02:00.000Z'));
+    const afterMidnight = await handler(new Request('https://example.test/about/'), '198.51.100.90');
+    expect(afterMidnight?.status).toBe(429);
+
+    // After 6h TTL expires cleanly at 06:00 UTC, normal traffic resumes and drops back to 0 WebCrypto calls
+    vi.setSystemTime(new Date('2026-11-25T06:01:00.000Z'));
+    signSpy.mockClear();
+    const afterExpiry = await handler(new Request('https://example.test/about/'), '198.51.100.90');
+    expect(afterExpiry).toBeNull();
+    expect(signSpy).toHaveBeenCalledTimes(0);
+  });
+
+  it('shares default QuarantineStore across SSR middleware/endpoint, honors ALL method, and skips prerendered middleware routes', async () => {
+    const warnings: string[] = [];
+    const integration = crawlerLabyrinth({
+      mode: 'hybrid',
+      strikeThreshold: 1,
+      enableSsrEndpoint: true,
+      secret: 'unit-fixture-shared-ssr-key-1234',
+      onViolation: () => undefined,
+    });
+    const setupHook = integration.hooks['astro:config:setup'];
+    setupHook?.({
+      config: { base: '/', trailingSlash: 'always' },
+      injectRoute: () => undefined,
+      addMiddleware: () => undefined,
+      updateConfig: () => undefined,
+      logger: {
+        warn: (msg: string) => warnings.push(msg),
+        info: () => undefined,
+      },
+    } as never);
+    expect(warnings.some((w) => w.includes('onViolation') && w.includes('enableSsrEndpoint'))).toBe(true);
+
+    const mw = createLabyrinthMiddleware();
+    const ep = createLabyrinthEndpoint();
+    let passedToNext = false;
+    await mw(
+      {
+        isPrerendered: true,
+        request: new Request('https://example.test/crawler-trap/'),
+        clientAddress: '198.51.100.91',
+      } as never,
+      async () => {
+        passedToNext = true;
+        return new Response('prerendered');
+      },
+    );
+    expect(passedToNext).toBe(true);
+
+    const mwTrap = await mw(
+      {
+        isPrerendered: false,
+        request: new Request('https://example.test/crawler-trap/'),
+        clientAddress: '198.51.100.91',
+      } as never,
+      async () => new Response('miss'),
+    );
+    expect(mwTrap?.status).toBe(200);
+
+    const epFollowUp = await ep({
+      request: new Request('https://example.test/crawler-trap/'),
+      clientAddress: '198.51.100.91',
+    } as never);
+    expect(epFollowUp.status).toBe(429);
+
+    const postRes = await endpointAll({
+      request: new Request('https://example.test/crawler-trap/', { method: 'POST' }),
+      clientAddress: '198.51.100.91',
+    } as never);
+    expect(postRes.status).toBe(429);
+  });
+
+  it('never burst-sheds in observe mode and captures multi-segment, .html, newline, and oversized trap paths', async () => {
+    const events: TrapViolationEvent[] = [];
+    const handler = createEdgeLabyrinthHandler({
+      mode: 'observe',
+      burstLimitPerMinute: 5,
+      secret: 'unit-fixture-observe-r1-secret12',
+      onViolation: (ev) => {
+        events.push(ev);
+      },
+    });
+    for (let i = 0; i < 6; i++) {
+      const res = await handler(new Request('https://example.test/crawler-trap/'), '198.51.100.92');
+      expect(res?.status).toBe(200);
+      expect(res?.headers.get('X-Crawler-Labyrinth')).toBe('observed');
+    }
+
+    const multi = await handler(new Request('https://example.test/crawler-trap/level1/level2/'), '198.51.100.93');
+    const htmlProbe = await handler(new Request('https://example.test/crawler-trap/index.html'), '198.51.100.93');
+    const longProbe = await handler(new Request(`https://example.test/crawler-trap/${'a'.repeat(97)}/`), '198.51.100.93');
+    const nlProbe = await handler(new Request('https://example.test/crawler-trap/foo%0abar'), '198.51.100.93');
+    const sibling = await handler(new Request('https://example.test/crawler-trap-blog/'), '198.51.100.93');
+
+    expect(multi?.status).toBe(200);
+    expect(htmlProbe?.status).toBe(200);
+    expect(longProbe?.status).toBe(200);
+    expect(nlProbe?.status).toBe(200);
+    expect(sibling).toBeNull();
+    expect(events[9]?.entryVector).toBe('robots_probe');
+    expect(events[9]?.routeToken).toBe('foobar');
+  });
+
+  it('preserves RFC 9309 group state across blank lines/Sitemaps, validates strict IP syntax, and pins trustedProxyHeader', async () => {
+    const blankPatched = patchRobotsTxt('User-agent: GPTBot\nAllow: /public/\n\nDisallow: /crawler-trap/\n', 'crawler-trap');
+    const sitemapMid = patchRobotsTxt(
+      'User-agent: GPTBot\nAllow: /public/\nSitemap: https://example.test/sitemap.xml\nDisallow: /crawler-trap/\n',
+      'crawler-trap',
+    );
+    expect(blankPatched.match(/Disallow: \/crawler-trap\//g)?.length).toBe(1);
+    expect(sitemapMid.match(/Disallow: \/crawler-trap\//g)?.length).toBe(1);
+    expect(patchRobotsTxt(blankPatched, 'crawler-trap')).toBe(blankPatched);
+
+    expect(normalizeClientIp('not-an-ip-string')).toBe('');
+    expect(normalizeClientIp('999.1.1.1')).toBe('');
+    expect(normalizeClientIp('::::')).toBe('');
+    expect(normalizeClientIp('198.51.100.7:8080')).toBe('198.51.100.7');
+    expect(normalizeClientIp('::ffff:c633:6407')).toBe('198.51.100.7');
+    expect(normalizeClientIp('[2001:db8:0:0::1]:443')).toBe('2001:db8::1');
+
+    const netlifyHandler = createEdgeLabyrinthHandler({
+      mode: 'block',
+      trustProxyHeaders: true,
+      trustedProxyHeader: 'x-nf-client-connection-ip',
+      secret: 'unit-fixture-netlify-proxy-1234',
+    });
+
+    // Garbage header is ignored (does not pool invalid strings into shared bans)
+    const invalidTrap = await netlifyHandler(
+      new Request('https://example.test/crawler-trap/', {
+        headers: { 'x-nf-client-connection-ip': 'garbage-non-ip-value' },
+      }),
+    );
+    expect(invalidTrap?.status).toBe(429);
+    const unrelatedHuman = await netlifyHandler(
+      new Request('https://example.test/about/', {
+        headers: { 'x-nf-client-connection-ip': 'not-an-ip-either' },
+      }),
+    );
+    expect(unrelatedHuman).toBeNull();
+
+    // Legitimate ban via trustedProxyHeader cannot be bypassed by rotating sibling CDN headers
+    await netlifyHandler(
+      new Request('https://example.test/crawler-trap/', {
+        headers: { 'x-nf-client-connection-ip': '198.51.100.99' },
+      }),
+    );
+    const spoofedBypassAttempt = await netlifyHandler(
+      new Request('https://example.test/about/', {
+        headers: {
+          'cf-connecting-ip': '203.0.113.250',
+          'x-nf-client-connection-ip': '198.51.100.99',
+        },
+      }),
+    );
+    expect(spoofedBypassAttempt?.status).toBe(429);
   });
 });

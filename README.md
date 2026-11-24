@@ -179,9 +179,10 @@ export default async (request: Request, context: { next: () => Promise<Response>
 | `stripFromSitemap` | `boolean` | `true` | Recursively removes matching `/<routePrefix>/` `<url>` blocks from `dist/sitemap*.xml` (list `crawlerLabyrinth()` after `@astrojs/sitemap()`). |
 | `basePath` | `string` | `''` (auto from Astro `base`) | Subpath mount prefix (e.g. `'/docs'`) propagated automatically from `astro.config` `base`. |
 | `trailingSlash` | `'always' \| 'never' \| 'ignore'` | `'always'` (auto from Astro `trailingSlash`) | Controls trailing slashes on emitted `<CrawlerTrap />` and decoy links; synced from `astro.config`. (`robots.txt` always emits `Disallow: <basePath>/<prefix>/`.) |
-| `trustProxyHeaders` | `boolean` | `false` | Opt-in to read `CF-Connecting-IP` / `X-Nf-Client-Connection-Ip` / `X-Real-IP` / `X-Forwarded-For` when no explicit platform IP is passed; leave `false` unless behind a trusted reverse proxy that strips client-supplied headers. |
+| `trustProxyHeaders` | `boolean` | `false` | Opt-in to read proxy IP headers when no explicit platform IP is passed. Without `trustedProxyHeader`, checks `cf-connecting-ip`, `x-nf-client-connection-ip`, `x-real-ip`, `x-forwarded-for` in order — leave `false` or pin `trustedProxyHeader` in multi-CDN setups where the edge only strips one vendor's header. |
+| `trustedProxyHeader` | `string \| undefined` | `undefined` | When `trustProxyHeaders: true`, restricts header extraction strictly to a single validated lowercase header name (e.g. `'x-nf-client-connection-ip'` on Netlify or `'cf-connecting-ip'` on Cloudflare) so sibling CDN headers cannot be spoofed to bypass bans. |
 | `entrySeed` | `string` | `'archroot0001'` | Sanitized alphanumeric seed (`4..24` chars) for deterministic bait tokens. |
-| `onViolation` | `(event: TrapViolationEvent) => void \| Promise<void>` | `undefined` | Optional telemetry hook invoked with masked `ipDigest` and violation metadata. |
+| `onViolation` | `(event: TrapViolationEvent) => void \| Promise<void>` | `undefined` | Optional telemetry hook invoked with masked `ipDigest` and violation metadata. Because compiled SSR config injection (`INJECTED_CONFIG`) serializes JSON-only options, wire `createLabyrinthMiddleware({ onViolation })` in `src/middleware.ts` (or `createEdgeLabyrinthHandler({ onViolation })`) for production SSR builds rather than passing `onViolation` to `crawlerLabyrinth({ enableSsrEndpoint: true })`. |
 
 ---
 

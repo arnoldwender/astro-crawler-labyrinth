@@ -33,3 +33,4 @@ export function createLabyrinthEndpoint(options?: EdgeLabyrinthOptions): APIRout
 
 export const GET: APIRoute = createLabyrinthEndpoint();
 export const HEAD: APIRoute = GET;
+export const ALL: APIRoute = GET;

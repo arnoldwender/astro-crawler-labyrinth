@@ -92,7 +92,7 @@ const MUTATIONS = [
   {
     name: 'patchRobotsTxt breaks stacked User-agent group inheritance',
     file: 'src/robots.ts',
-    find: '      if (inGroup && hasNonUaDirective) {',
+    find: '      if (inGroup && (hasNonUaDirective || sawBlank)) {',
     replace: '      if (inGroup) {',
   },
   {
@@ -166,6 +166,84 @@ const MUTATIONS = [
     file: 'src/bait.ts',
     find: 'return `<div hidden inert aria-hidden="true" data-crawler-labyrinth="1">${anchors}</div>`;',
     replace: 'return `<div aria-hidden="true" data-crawler-labyrinth="1">${anchors}</div>`;',
+  },
+  {
+    name: 'Middleware stops skipping prerendered pages',
+    file: 'src/middleware.ts',
+    find: '    if ((context as { isPrerendered?: boolean }).isPrerendered) {\n      return next();\n    }',
+    replace: '    if (false && (context as { isPrerendered?: boolean }).isPrerendered) {\n      return next();\n    }',
+  },
+  {
+    name: 'Endpoint breaks ALL handler parity for non-GET methods',
+    file: 'src/endpoint.ts',
+    find: 'export const ALL: APIRoute = GET;',
+    replace: "export const ALL: APIRoute = async () => new Response('Method Not Allowed', { status: 405 });",
+  },
+  {
+    name: 'Edge handler drops shared default QuarantineStore across SSR middleware/endpoint',
+    file: 'src/edge.ts',
+    find: '    const store = fixedStore ?? getSharedQuarantineStore();',
+    replace: '    void getSharedQuarantineStore;\n    const store = fixedStore ?? new QuarantineStore();',
+  },
+  {
+    name: 'Edge handler drops hot-path O(1) short-circuit before WebCrypto IP hashing',
+    file: 'src/edge.ts',
+    find: '    if (!trapMatch && !uaMatched && !shouldCheckQuarantine) {\n      return null;\n    }',
+    replace: '    if (false && !trapMatch && !uaMatched && !shouldCheckQuarantine) {\n      return null;\n    }',
+  },
+  {
+    name: 'Edge handler drops UTC midnight quarantine lookback window',
+    file: 'src/edge.ts',
+    find: '  const lookbackDays = Math.min(7, Math.max(1, Math.ceil(blockTtlMs / 86_400_000)));',
+    replace: '  const lookbackDays = 0;',
+  },
+  {
+    name: 'Edge handler runs burst shedder in observe dry-run mode',
+    file: 'src/edge.ts',
+    find: "    if (base.mode !== 'observe') {\n      if (base.burstLimitPerMinute > 0 && store.isBurstExceeded(base.burstLimitPerMinute)) {",
+    replace: '    if (true) {\n      if (base.burstLimitPerMinute > 0 && store.isBurstExceeded(base.burstLimitPerMinute)) {',
+  },
+  {
+    name: 'Edge handler reverts trapRegex to single-segment bypassing multi-segment/.html probes',
+    file: 'src/edge.ts',
+    find: '`^${escapeRegex(basePrefix)}\\\\/${escapeRegex(routePrefix)}(?:\\\\/([\\\\s\\\\S]*))?$`,',
+    replace: '`^${escapeRegex(basePrefix)}\\\\/${escapeRegex(routePrefix)}(?:\\\\/([a-zA-Z0-9_-]{1,96}))?\\\\/?$`,',
+  },
+  {
+    name: 'Edge handler omits X-Crawler-Labyrinth state header',
+    file: 'src/edge.ts',
+    find: "    'X-Crawler-Labyrinth': stateHeader,",
+    replace: "    'X-Crawler-Labyrinth': 'disabled',",
+  },
+  {
+    name: 'Edge handler misclassifies unsigned robots_probe as signed_bait',
+    file: 'src/edge.ts',
+    find: "    const entryVector = !trapMatch ? 'ua_guard' : parsed ? 'signed_bait' : 'robots_probe';",
+    replace: "    const entryVector = !trapMatch ? 'ua_guard' : 'signed_bait';",
+  },
+  {
+    name: 'patchRobotsTxt flushes active group on blank line or Sitemap directive',
+    file: 'src/robots.ts',
+    find: "    if (inGroup && (trimmed === '' || isSitemap)) {\n      sawBlank = true;\n      result.push(line);\n      continue;\n    }",
+    replace: "    if (inGroup && (trimmed === '' || isSitemap)) {\n      flushGroup();\n      result.push(line);\n      continue;\n    }",
+  },
+  {
+    name: 'normalizeClientIp accepts invalid non-IPv4 strings without syntax check',
+    file: 'src/crypto.ts',
+    find: "  const quad = parseIpv4Quad(ip);\n  if (!quad) {\n    return '';\n  }\n  const [hi, lo] = quad;\n  return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;",
+    replace: '  void parseIpv4Quad(ip);\n  return ip;',
+  },
+  {
+    name: 'Edge handler ignores pinned trustedProxyHeader and falls back to spoofable headers',
+    file: 'src/edge.ts',
+    find: '  if (trustedProxyHeader) {',
+    replace: '  if (false && trustedProxyHeader) {',
+  },
+  {
+    name: 'Integration stops warning when enableSsrEndpoint drops onViolation callback',
+    file: 'src/integration.ts',
+    find: "        if (activeConfig.enableSsrEndpoint && typeof options.onViolation === 'function') {",
+    replace: "        if (false && activeConfig.enableSsrEndpoint && typeof options.onViolation === 'function') {",
   },
 ];
 
