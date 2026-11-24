@@ -269,18 +269,20 @@ export function createEdgeLabyrinthHandler(options?: EdgeLabyrinthOptions): Edge
       }
     };
 
-    if (base.burstLimitPerMinute > 0 && store.isBurstExceeded(base.burstLimitPerMinute)) {
-      await notify({
-        timestamp: new Date().toISOString(),
-        ipDigest,
-        userAgentExcerpt: userAgent.slice(0, 120),
-        routeToken: rawToken || 'root',
-        actionTaken: 'burst_shed',
-        entryVector,
-        strikes: 0,
-        status: 429,
-      });
-      return buildBlockResponse(429, 60, isHead, 'burst-shed');
+    if (base.mode !== 'observe') {
+      if (base.burstLimitPerMinute > 0 && store.isBurstExceeded(base.burstLimitPerMinute)) {
+        await notify({
+          timestamp: new Date().toISOString(),
+          ipDigest,
+          userAgentExcerpt: userAgent.slice(0, 120),
+          routeToken: rawToken || 'root',
+          actionTaken: 'burst_shed',
+          entryVector,
+          strikes: 0,
+          status: 429,
+        });
+        return buildBlockResponse(429, 60, isHead, 'burst-shed');
+      }
     }
 
     const outcome = hasIdentifiableIp
