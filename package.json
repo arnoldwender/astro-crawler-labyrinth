@@ -1,6 +1,6 @@
 {
   "name": "astro-crawler-labyrinth",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Local deterministic crawler tarpit integration, accessible-inert CrawlerTrap component, and Web-standard Edge/SSR quarantine handler for Astro.",
   "type": "module",
   "license": "MIT",
